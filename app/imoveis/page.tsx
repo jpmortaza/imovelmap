@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import LogoutButton from "./logout-button";
@@ -30,6 +31,13 @@ export default async function ImoveisPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const { data: me } = await supabase
+    .from("corretores")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+  const isSuperAdmin = me?.role === "super_admin";
+
   const { data, error } = await supabase
     .from("imoveis")
     .select(
@@ -57,7 +65,23 @@ export default async function ImoveisPage() {
             Logado como {user.email}
           </p>
         </div>
-        <LogoutButton />
+        <div style={{ display: "flex", gap: 8 }}>
+          {isSuperAdmin && (
+            <Link
+              href="/admin"
+              style={{
+                background: "#111",
+                color: "#fff",
+                padding: "8px 14px",
+                borderRadius: 8,
+                fontSize: 14
+              }}
+            >
+              Admin
+            </Link>
+          )}
+          <LogoutButton />
+        </div>
       </header>
 
       {error && (
