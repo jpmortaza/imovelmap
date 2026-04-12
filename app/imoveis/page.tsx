@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import LogoutButton from "./logout-button";
 import BuscarForm from "./buscar-form";
 import ExtrairButton from "./extrair-button";
+import FavoritarButton from "./favoritar-button";
 
 export const dynamic = "force-dynamic";
 
@@ -111,7 +112,7 @@ export default async function ImoveisPage({
           <Link href="/" style={navLink}>
             Mapa
           </Link>
-          {isCorretor && <ExtrairButton fonteSlug="rgi-poa" />}
+          {isCorretor && <ExtrairButton />}
           {isSuperAdmin && (
             <Link href="/admin" style={navBtn}>
               Admin
@@ -168,20 +169,25 @@ export default async function ImoveisPage({
           }}
         >
           {imoveis.map((i) => (
-            <a
+            <div
               key={i.id}
-              href={i.source_url}
-              target="_blank"
-              rel="noreferrer"
               style={{
                 background: "#fff",
                 borderRadius: 12,
                 overflow: "hidden",
                 boxShadow: "0 2px 12px rgba(0,0,0,.05)",
                 display: "flex",
-                flexDirection: "column"
+                flexDirection: "column",
+                position: "relative"
               }}
             >
+              {user && <FavoritarButton imovelId={i.id} />}
+              <a
+                href={i.source_url}
+                target="_blank"
+                rel="noreferrer"
+                style={{ display: "flex", flexDirection: "column", flex: 1 }}
+              >
               {i.images?.[0] && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -233,7 +239,8 @@ export default async function ImoveisPage({
                   {i.source}
                 </div>
               </div>
-            </a>
+              </a>
+            </div>
           ))}
         </div>
       )}

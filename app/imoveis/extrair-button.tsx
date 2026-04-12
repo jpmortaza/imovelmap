@@ -1,45 +1,67 @@
 "use client";
 
-import { useTransition, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function ExtrairButton({ fonteSlug = "rgi-poa" }: { fonteSlug?: string }) {
+const FONTES = [
+  { key: "rgi-poa", label: "Rede Gaucha" },
+  { key: "zap-poa", label: "ZAP Imoveis" },
+  { key: "vr-poa", label: "VivaReal" },
+];
+
+export default function ExtrairButton() {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [selected, setSelected] = useState("rgi-poa");
+  const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   async function rodar() {
     setMsg(null);
+    setLoading(true);
     try {
       const r = await fetch("/api/extracoes/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ fonteSlug })
+        body: JSON.stringify({ scraperKey: selected, maxItems: 30 }),
       });
       const j = await r.json();
       if (!r.ok) {
         setMsg(`erro: ${j.error ?? r.status}`);
         return;
       }
-      const novos = j.totalNovos ?? 0;
-      const total = j.totalEncontrados ?? 0;
-      setMsg(
-        j.mode === "queued"
-          ? "extração enfileirada — o worker vai consumir em breve"
-          : `ok: ${novos} novos / ${total} encontrados`
-      );
-      startTransition(() => router.refresh());
+      setMsg(`${j.totalNovos} novos / ${j.totalEncontrados} encontrados (${Math.round(j.duracaoMs / 1000)}s)`);
+      router.refresh();
     } catch (e) {
       setMsg(`erro: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <select
+        value={selected}
+        onChange={(e) => setSelected(e.target.value)}
+        disabled={loading}
+        style={{
+          padding: "8px 10px",
+          borderRadius: 8,
+          border: "1px solid #ccc",
+          fontSize: 13,
+          background: "#fff",
+        }}
+      >
+        {FONTES.map((f) => (
+          <option key={f.key} value={f.key}>
+            {f.label}
+          </option>
+        ))}
+      </select>
       <button
         type="button"
         onClick={rodar}
-        disabled={pending}
+        disabled={loading}
         style={{
           background: "#0a7c3a",
           color: "#fff",
@@ -47,10 +69,11 @@ export default function ExtrairButton({ fonteSlug = "rgi-poa" }: { fonteSlug?: s
           padding: "9px 14px",
           borderRadius: 8,
           fontSize: 13,
-          cursor: pending ? "wait" : "pointer"
+          cursor: loading ? "wait" : "pointer",
+          opacity: loading ? 0.7 : 1,
         }}
       >
-        {pending ? "Extraindo..." : "Extrair mais imóveis"}
+        {loading ? "Extraindo..." : "Extrair"}
       </button>
       {msg && <span style={{ fontSize: 12, color: "#555" }}>{msg}</span>}
     </div>

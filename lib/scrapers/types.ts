@@ -1,0 +1,31 @@
+export interface ImovelPayload {
+  id: string;
+  source: string;
+  url: string;
+  title: string;
+  transactionType: "sale" | "rent" | null;
+  propertyType: string | null;
+  propertySubType?: string | null;
+  price: number | null;
+  priceFormatted: string | null;
+  condominiumFee?: number | null;
+  iptu?: number | null;
+  pricePerSqm?: number | null;
+  area: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  parkingSpaces: number | null;
+  endereco?: string | null;
+  enderecoNumero?: string | null;
+  complemento?: string | null;
+  cep?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  neighborhood: string | null;
+  city: string | null;
+  state: string | null;
+  images: string[];
+  imageCount: number;
+  publishedAt?: string | null;
+  scrapedAt: string;
+}
