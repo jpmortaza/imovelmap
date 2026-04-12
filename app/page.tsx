@@ -62,7 +62,7 @@ export default async function Home() {
               <Link href="/imoveis" style={navLink}>
                 Lista
               </Link>
-              <Link href="/imoveis" style={navBtn}>
+              <Link href="/painel" style={navBtn}>
                 Painel do corretor
               </Link>
             </>
