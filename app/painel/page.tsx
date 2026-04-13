@@ -37,6 +37,25 @@ interface Proprietario {
   notas: string;
 }
 
+interface LookupResult {
+  cepData?: {
+    logradouro: string;
+    complemento: string;
+    bairro: string;
+    localidade: string;
+    uf: string;
+  };
+  cnpjData?: {
+    nome: string;
+    fantasia: string;
+    socios: Array<{ nome: string; qual: string }>;
+    situacao: string;
+  };
+  cartorioHint?: string;
+  iptuUrl?: string;
+  suggestions: string[];
+}
+
 const OUTCOMES = [
   { value: "contatou_proprietario", label: "Contatei proprietario" },
   { value: "agendou_visita", label: "Agendou visita" },
@@ -68,6 +87,9 @@ export default function PainelPage() {
   const [openPropForm, setOpenPropForm] = useState<string | null>(null);
   const [propForms, setPropForms] = useState<Record<string, Proprietario>>({});
   const [savingProp, setSavingProp] = useState(false);
+  const [lookupResults, setLookupResults] = useState<Record<string, LookupResult>>({});
+  const [lookupLoading, setLookupLoading] = useState<string | null>(null);
+  const [lookupOpen, setLookupOpen] = useState<Record<string, boolean>>({});
 
   const fetchLease = useCallback(async () => {
     setLoading(true);
@@ -143,6 +165,30 @@ export default function PainelPage() {
       ...prev,
       [imovelId]: { ...(prev[imovelId] || emptyProp), [field]: value },
     }));
+  }
+
+  async function handleLookup(imovelId: string) {
+    setLookupLoading(imovelId);
+    setLookupOpen((prev) => ({ ...prev, [imovelId]: true }));
+    try {
+      const res = await fetch(`/api/painel/lookup?imovelId=${imovelId}`);
+      const data = await res.json();
+      if (res.ok) {
+        setLookupResults((prev) => ({ ...prev, [imovelId]: data }));
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setLookupLoading(null);
+    }
+  }
+
+  function toggleLookup(imovelId: string) {
+    if (lookupResults[imovelId]) {
+      setLookupOpen((prev) => ({ ...prev, [imovelId]: !prev[imovelId] }));
+    } else {
+      handleLookup(imovelId);
+    }
   }
 
   if (loading) {
@@ -258,21 +304,144 @@ export default function PainelPage() {
                   ))}
                 </div>
 
-                <button
-                  onClick={() => togglePropForm(im.id)}
-                  style={{
-                    fontSize: 13,
-                    padding: "7px 14px",
-                    borderRadius: 8,
-                    border: "none",
-                    background: propOpen ? "#111" : "#0a7c3a",
-                    color: "#fff",
-                    cursor: "pointer",
-                    width: "100%",
-                  }}
-                >
-                  {propOpen ? "Fechar" : "Registrar Proprietario"}
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    onClick={() => toggleLookup(im.id)}
+                    disabled={lookupLoading === im.id}
+                    style={{
+                      fontSize: 13,
+                      padding: "7px 14px",
+                      borderRadius: 8,
+                      border: "1px solid #0a7c3a",
+                      background: lookupOpen[im.id] ? "#e8f5e9" : "#fff",
+                      color: "#0a7c3a",
+                      cursor: lookupLoading === im.id ? "wait" : "pointer",
+                      flex: 1,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {lookupLoading === im.id
+                      ? "Buscando..."
+                      : lookupOpen[im.id]
+                        ? "Ocultar Pesquisa"
+                        : "Buscar Proprietario"}
+                  </button>
+                  <button
+                    onClick={() => togglePropForm(im.id)}
+                    style={{
+                      fontSize: 13,
+                      padding: "7px 14px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: propOpen ? "#111" : "#0a7c3a",
+                      color: "#fff",
+                      cursor: "pointer",
+                      flex: 1,
+                    }}
+                  >
+                    {propOpen ? "Fechar" : "Registrar Proprietario"}
+                  </button>
+                </div>
+
+                {lookupOpen[im.id] && lookupResults[im.id] && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: 16,
+                      background: "#f0f7f1",
+                      borderRadius: 8,
+                      border: "1px solid #c8e6c9",
+                    }}
+                  >
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#1b5e20", marginBottom: 12 }}>
+                      Resultado da Pesquisa
+                    </div>
+
+                    {lookupResults[im.id].cepData && (
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 4 }}>
+                          Endereco (via CEP)
+                        </div>
+                        <div style={{ fontSize: 13, color: "#333", background: "#fff", padding: 10, borderRadius: 6 }}>
+                          {lookupResults[im.id].cepData!.logradouro}
+                          {lookupResults[im.id].cepData!.complemento && `, ${lookupResults[im.id].cepData!.complemento}`}
+                          <br />
+                          {lookupResults[im.id].cepData!.bairro} - {lookupResults[im.id].cepData!.localidade}/{lookupResults[im.id].cepData!.uf}
+                        </div>
+                      </div>
+                    )}
+
+                    {lookupResults[im.id].cnpjData && (
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 4 }}>
+                          Dados do CNPJ
+                        </div>
+                        <div style={{ fontSize: 13, color: "#333", background: "#fff", padding: 10, borderRadius: 6 }}>
+                          <strong>{lookupResults[im.id].cnpjData!.nome}</strong>
+                          {lookupResults[im.id].cnpjData!.fantasia && (
+                            <span style={{ color: "#666" }}> ({lookupResults[im.id].cnpjData!.fantasia})</span>
+                          )}
+                          <br />
+                          <span style={{ fontSize: 12, color: "#666" }}>
+                            Situacao: {lookupResults[im.id].cnpjData!.situacao}
+                          </span>
+                          {lookupResults[im.id].cnpjData!.socios.length > 0 && (
+                            <div style={{ marginTop: 6 }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>Socios:</span>
+                              {lookupResults[im.id].cnpjData!.socios.map((s, i) => (
+                                <div key={i} style={{ fontSize: 12, color: "#444", paddingLeft: 8 }}>
+                                  {s.nome} <span style={{ color: "#888" }}>({s.qual})</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {lookupResults[im.id].cartorioHint && (
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 4 }}>
+                          Cartorio Competente
+                        </div>
+                        <div style={{ fontSize: 13, color: "#333", background: "#fff", padding: 10, borderRadius: 6 }}>
+                          {lookupResults[im.id].cartorioHint}
+                        </div>
+                      </div>
+                    )}
+
+                    {lookupResults[im.id].iptuUrl && (
+                      <div style={{ marginBottom: 12 }}>
+                        <a
+                          href={lookupResults[im.id].iptuUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            fontSize: 13,
+                            color: "#0a7c3a",
+                            fontWeight: 500,
+                            textDecoration: "underline",
+                          }}
+                        >
+                          Consultar IPTU - Porto Alegre (SMF)
+                        </a>
+                      </div>
+                    )}
+
+                    {lookupResults[im.id].suggestions.length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 4 }}>
+                          Sugestoes para o corretor
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#444" }}>
+                          {lookupResults[im.id].suggestions.map((s, i) => (
+                            <li key={i} style={{ marginBottom: 4 }}>{s}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {propOpen && propForm && (
                   <div style={{ marginTop: 12, padding: 16, background: "#f9f9f9", borderRadius: 8 }}>

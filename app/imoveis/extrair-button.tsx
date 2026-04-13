@@ -7,6 +7,8 @@ const FONTES = [
   { key: "rgi-poa", label: "Rede Gaucha" },
   { key: "zap-poa", label: "ZAP Imoveis" },
   { key: "vr-poa", label: "VivaReal" },
+  { key: "iw-poa", label: "ImovelWeb" },
+  { key: "olx-poa", label: "OLX Imoveis" },
 ];
 
 export default function ExtrairButton() {
