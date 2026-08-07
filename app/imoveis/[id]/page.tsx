@@ -155,6 +155,7 @@ export default async function ImovelPage({ params }: { params: { id: string } })
             tira a certidão no cartório e lê o nome do proprietário. Vem do
             ITBI de Porto Alegre, dados abertos. */}
         <Matricula imovel={imovel} />
+        <ContatosCnpj imovel={imovel} />
 
         <section style={cartao}>
           <h2 style={h2}>💰 Valores</h2>
@@ -539,6 +540,111 @@ function Matricula({ imovel }: { imovel: Record<string, any> }) {
     </section>
   );
 }
+
+/** "5194695864" → "(51) 9469-5864" */
+function fone(f: string | null): string {
+  const d = String(f ?? "").replace(/\D/g, "");
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return f ?? "—";
+}
+
+/**
+ * Quem tem empresa registrada NESTA unidade.
+ *
+ * ⚠️ Isto é um fato sobre o cadastro da Receita, NÃO sobre a propriedade.
+ *    Milhões de brasileiros abrem empresa no endereço onde moram — mas a
+ *    pessoa pode ser inquilina, ou já ter se mudado. Quem confirma quem é o
+ *    dono é a matrícula. A tela tem que dizer isso, e diz.
+ */
+function ContatosCnpj({ imovel }: { imovel: Record<string, any> }) {
+  const c = Array.isArray(imovel.contatos_cnpj) ? imovel.contatos_cnpj : null;
+  if (!c?.length) return null;
+
+  return (
+    <section style={{ ...cartao, borderLeft: "4px solid #0b6bcb" }}>
+      <h2 style={h2}>🏢 Empresa registrada nesta unidade</h2>
+      <p style={{ fontSize: 12.5, color: "#666", margin: "0 0 12px", lineHeight: 1.55 }}>
+        A Receita Federal publica o endereço de todo CNPJ, com complemento. Estas
+        empresas estão cadastradas em <b>{imovel.endereco}, {imovel.endereco_numero}
+        {imovel.unidade ? ` · unidade ${imovel.unidade}` : ""}</b> — o mesmo do
+        anúncio. Quem abre empresa em apartamento normalmente mora nele.
+      </p>
+
+      <div style={{ display: "grid", gap: 8 }}>
+        {c.slice(0, 6).map((x: any, i: number) => (
+          <div
+            key={i}
+            style={{
+              background: "#f6f9fc",
+              border: "1px solid #dde7f0",
+              borderRadius: 9,
+              padding: "10px 12px"
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: 14 }}>
+              {x.nome}
+              {x.pessoaFisica && (
+                <span
+                  style={{
+                    ...tagPessoa,
+                    marginLeft: 7
+                  }}
+                >
+                  pessoa física
+                </span>
+              )}
+            </div>
+            {x.fone && (
+              <div style={{ fontSize: 14, marginTop: 4 }}>
+                <a href={`tel:+55${x.fone}`} style={{ color: "#0b6bcb", fontWeight: 600 }}>
+                  {fone(x.fone)}
+                </a>
+                {!x.local && (
+                  <span style={{ fontSize: 11.5, color: "#8a6100", marginLeft: 8 }}>
+                    DDD de fora do RS — pode ser contador, não o morador
+                  </span>
+                )}
+              </div>
+            )}
+            {x.complemento && (
+              <div style={{ fontSize: 11.5, color: "#777", marginTop: 3 }}>
+                cadastro: {x.complemento}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div
+        style={{
+          marginTop: 11,
+          fontSize: 11.5,
+          color: "#7a5600",
+          background: "#fff8ed",
+          border: "1px solid #f0d9a0",
+          borderRadius: 8,
+          padding: "9px 11px",
+          lineHeight: 1.5
+        }}
+      >
+        <b>Isto não prova propriedade.</b> Diz que existe uma empresa cadastrada
+        neste endereço. A pessoa pode ser inquilina ou já ter mudado — quem
+        confirma quem é o dono é a matrícula, acima.
+      </div>
+    </section>
+  );
+}
+
+const tagPessoa: React.CSSProperties = {
+  background: "#dcfce7",
+  color: "#166534",
+  borderRadius: 999,
+  padding: "2px 8px",
+  fontSize: 10.5,
+  fontWeight: 700,
+  verticalAlign: "middle"
+};
 
 function Dado({ rotulo, valor }: { rotulo: string; valor: React.ReactNode }) {
   return (
