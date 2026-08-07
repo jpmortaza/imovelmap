@@ -57,6 +57,9 @@ export default async function Home() {
         </span>
 
         <nav style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
+          <Link href="/extensao" style={navLink}>
+            Extensão
+          </Link>
           {user ? (
             <>
               <Link href="/imoveis" style={navLink}>

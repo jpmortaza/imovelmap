@@ -35,7 +35,15 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute =
     url.pathname.startsWith("/login") || url.pathname.startsWith("/auth");
 
-  if (!user && !isAuthRoute) {
+  // Rotas que existem PARA quem ainda nao tem conta: o mapa publico, a API
+  // que o alimenta e a pagina de download da extensao. Sem isto o visitante
+  // anonimo cai no login e nunca ve o produto.
+  const isPublica =
+    url.pathname === "/" ||
+    url.pathname.startsWith("/extensao") ||
+    url.pathname.startsWith("/api/imoveis/publico");
+
+  if (!user && !isAuthRoute && !isPublica) {
     const redirect = url.clone();
     redirect.pathname = "/login";
     return NextResponse.redirect(redirect);

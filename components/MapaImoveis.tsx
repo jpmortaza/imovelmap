@@ -67,6 +67,8 @@ export default function MapaImoveis() {
   const [items, setItems] = useState<ImovelPublico[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  // imovel aberto no painel lateral (null = painel fechado)
+  const [aberto, setAberto] = useState<ImovelPublico | null>(null);
   const [filtros, setFiltros] = useState<Filtros>({
     tipo: "",
     q: "",
@@ -139,6 +141,7 @@ export default function MapaImoveis() {
             key={i.id}
             position={[i.lat!, i.lng!]}
             icon={defaultIcon}
+            eventHandlers={{ click: () => setAberto(i) }}
           >
             <Popup maxWidth={280}>
               <div style={{ minWidth: 220 }}>
@@ -178,24 +181,23 @@ export default function MapaImoveis() {
                     .filter(Boolean)
                     .join(" · ")}
                 </div>
-                <a
-                  href={i.sourceUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  onClick={() => setAberto(i)}
                   style={{
-                    display: "inline-block",
-                    marginTop: 8,
-                    fontSize: 12,
-                    color: "#0366d6"
+                    marginTop: 8, fontSize: 12, cursor: "pointer",
+                    background: "#111", color: "#fff", border: 0,
+                    borderRadius: 6, padding: "6px 10px", width: "100%"
                   }}
                 >
-                  Ver anúncio original →
-                </a>
+                  Abrir dossiê →
+                </button>
               </div>
             </Popup>
           </Marker>
         ))}
       </MapContainer>
+
+      {aberto && <PainelLateral imovel={aberto} aoFechar={() => setAberto(null)} />}
     </div>
   );
 }
@@ -299,3 +301,147 @@ const selectStyle: React.CSSProperties = {
   cursor: "pointer",
   background: "#fff"
 };
+
+/**
+ * Painel lateral: abre à direita ao clicar no pin, sem tirar o corretor do
+ * mapa. Mostra o que a API pública entrega e leva ao dossiê completo —
+ * endereço, telefone e proprietário só aparecem para quem está logado,
+ * porque é isso que o `anon` não pode ver (0006_rls.sql).
+ */
+function PainelLateral({
+  imovel,
+  aoFechar
+}: {
+  imovel: ImovelPublico;
+  aoFechar: () => void;
+}) {
+  return (
+    <aside
+      style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: 340,
+        maxWidth: "92vw",
+        background: "#fff",
+        boxShadow: "-6px 0 24px rgba(0,0,0,.16)",
+        zIndex: 1000,
+        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column"
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          padding: "12px 14px",
+          borderBottom: "1px solid #eee",
+          position: "sticky",
+          top: 0,
+          background: "#fff"
+        }}
+      >
+        <strong style={{ flex: 1, fontSize: 14 }}>Imóvel</strong>
+        <button
+          onClick={aoFechar}
+          aria-label="fechar"
+          style={{
+            border: 0,
+            background: "transparent",
+            fontSize: 20,
+            cursor: "pointer",
+            color: "#888",
+            lineHeight: 1
+          }}
+        >
+          ×
+        </button>
+      </div>
+
+      {imovel.image && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imovel.image}
+          alt=""
+          style={{ width: "100%", height: 190, objectFit: "cover" }}
+        />
+      )}
+
+      <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ fontSize: 22, fontWeight: 800 }}>
+          {imovel.priceFormatted ??
+            (imovel.price ? `R$ ${imovel.price.toLocaleString("pt-BR")}` : "Sob consulta")}
+          {imovel.transactionType === "rent" && (
+            <span style={{ fontSize: 12, color: "#666", fontWeight: 400 }}> /mês</span>
+          )}
+        </div>
+
+        <div style={{ fontSize: 13.5, color: "#333", lineHeight: 1.45 }}>{imovel.title}</div>
+
+        <div style={{ fontSize: 12.5, color: "#666" }}>
+          {[imovel.neighborhood, imovel.city, imovel.state].filter(Boolean).join(" · ")}
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(2, 1fr)",
+            gap: 8,
+            borderTop: "1px solid #eee",
+            borderBottom: "1px solid #eee",
+            padding: "10px 0"
+          }}
+        >
+          <Info r="Área" v={imovel.area ? `${imovel.area} m²` : "—"} />
+          <Info r="Quartos" v={imovel.bedrooms ?? "—"} />
+          <Info r="Banheiros" v={imovel.bathrooms ?? "—"} />
+          <Info r="Vagas" v={imovel.parkingSpaces ?? "—"} />
+          <Info r="Tipo" v={imovel.propertyType ?? "—"} />
+          <Info r="Portal" v={imovel.source} />
+        </div>
+
+        {/* ⭐ o que o mapa público NÃO mostra fica atrás do login */}
+        <a
+          href={`/imoveis/${imovel.id}`}
+          style={{
+            background: "#111",
+            color: "#fff",
+            padding: "11px 14px",
+            borderRadius: 9,
+            textAlign: "center",
+            fontSize: 13.5,
+            fontWeight: 600,
+            textDecoration: "none"
+          }}
+        >
+          Abrir dossiê completo →
+        </a>
+        <div style={{ fontSize: 11.5, color: "#888", textAlign: "center" }}>
+          endereço, telefone do anunciante e proprietário
+        </div>
+
+        <a
+          href={imovel.sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+          style={{ fontSize: 12.5, color: "#0366d6", textAlign: "center" }}
+        >
+          ver anúncio original no portal
+        </a>
+      </div>
+    </aside>
+  );
+}
+
+function Info({ r, v }: { r: string; v: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: 0.4 }}>
+        {r}
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div>
+    </div>
+  );
+}

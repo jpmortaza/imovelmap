@@ -25,6 +25,7 @@ export default async function AdminLayout({
         <strong style={{ marginRight: 20 }}>ImovelMap · Admin</strong>
         <Link href="/admin/fontes" style={linkStyle}>Fontes</Link>
         <Link href="/admin/extracoes" style={linkStyle}>Extrações</Link>
+        <Link href="/admin/corretores" style={linkStyle}>Corretores</Link>
         <Link href="/imoveis" style={{ ...linkStyle, marginLeft: "auto" }}>
           ← Voltar
         </Link>

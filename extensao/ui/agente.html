@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>ImovelMap — Buscar imóveis</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 28px 20px 60px;
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #111; background: #f7f7f8;
+      }
+      .wrap { max-width: 780px; margin: 0 auto; }
+      h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.3px; }
+      .sub { color: #777; font-size: 13px; margin-bottom: 22px; }
+      .cartao {
+        background: #fff; border-radius: 12px; padding: 18px;
+        margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+      }
+      h2 { font-size: 15px; margin: 0 0 12px; }
+      label { display: block; font-size: 12.5px; color: #555; margin-bottom: 4px; }
+      input[type=text], input[type=number] {
+        width: 100%; padding: 9px 11px; border: 1px solid #ddd;
+        border-radius: 8px; font: inherit; font-size: 13px; outline: none;
+      }
+      input:focus { border-color: #2b6cb0; }
+      button {
+        border: 0; border-radius: 8px; padding: 10px 16px; font: inherit;
+        font-size: 13.5px; background: #111; color: #fff; cursor: pointer;
+      }
+      button.sec { background: #fff; color: #333; border: 1px solid #ddd; }
+      button.perigo { background: #b00020; }
+      button:disabled { opacity: .5; cursor: default; }
+      .linha { display: flex; gap: 8px; align-items: flex-end; }
+      .linha > div { flex: 1; }
+      .linha > div.curto { flex: 0 0 110px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th { text-align: left; font-size: 11px; text-transform: uppercase;
+           letter-spacing: .5px; color: #888; padding: 6px 8px; }
+      td { padding: 8px; border-top: 1px solid #eee; vertical-align: top; }
+      td.url { font-size: 11.5px; color: #666; word-break: break-all; }
+      .pill { font-size: 10.5px; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+      .on { background: #e7f6ec; color: #157f3c; }
+      .off { background: #eee; color: #777; }
+      .rodando { background: #fff7e0; color: #8a6d00; }
+      .vazio { color: #888; font-size: 13px; padding: 18px 0; text-align: center; }
+      .aviso {
+        background: #fff7e0; color: #6b5200; border-radius: 8px;
+        padding: 12px 14px; font-size: 12.5px; line-height: 1.55; margin-bottom: 14px;
+      }
+      .prog {
+        background: #11161d; color: #d7e3f0; border-radius: 8px;
+        padding: 12px 14px; font-size: 12.5px; font-family: ui-monospace, monospace;
+      }
+      .hist { max-height: 220px; overflow: auto; font-size: 12px; }
+      .hist div { padding: 4px 0; border-bottom: 1px solid #f0f0f0; color: #555; }
+      .hora { color: #aaa; margin-right: 6px; }
+      .chk { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+      code { background: #f0f2f5; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Buscar imóveis</h1>
+      <div class="sub">
+        Cadastre as buscas e deixe o computador trabalhando. A extensão abre
+        cada página, lê e passa para a próxima.
+      </div>
+
+      <div class="aviso">
+        <strong>Como manter isto funcionando.</strong> Este modo abre páginas
+        sozinho — os portais tratam isso como robô se for rápido demais. Os
+        intervalos são propositalmente lentos e há uma pausa de 4 horas
+        automática se algum portal bloquear. Use uma máquina dedicada, não a
+        do corretor que trabalha.
+      </div>
+
+      <div class="cartao">
+        <h2>Buscas cadastradas</h2>
+        <div class="linha">
+          <div>
+            <label>URL da busca (a página de resultados do portal)</label>
+            <input type="text" id="url"
+              placeholder="https://www.zapimoveis.com.br/venda/apartamentos/rs+porto-alegre/" />
+          </div>
+          <div class="curto">
+            <label>Páginas</label>
+            <input type="number" id="paginas" value="5" min="1" max="5" />
+          </div>
+          <button id="add">Adicionar</button>
+        </div>
+        <div id="erro" style="color:#b00020;font-size:12.5px;margin-top:8px"></div>
+
+        <table style="margin-top:14px">
+          <thead>
+            <tr><th>Busca</th><th>Páginas</th><th>Última</th><th>Estado</th><th></th></tr>
+          </thead>
+          <tbody id="lista"></tbody>
+        </table>
+        <div class="vazio" id="vazio">Nenhuma busca cadastrada ainda.</div>
+      </div>
+
+      <div class="cartao">
+        <h2>Execução</h2>
+        <div class="linha" style="margin-bottom:12px">
+          <button id="rodar">Buscar imóveis agora</button>
+          <button id="parar" class="sec">Parar</button>
+        </div>
+        <label class="chk">
+          <input type="checkbox" id="auto" />
+          <span>Repetir sozinho a cada 3 horas (deixe o Chrome aberto)</span>
+        </label>
+        <div id="progresso" class="prog" style="margin-top:12px;display:none"></div>
+      </div>
+
+      <div class="cartao">
+        <h2>Histórico</h2>
+        <div class="hist" id="hist"></div>
+      </div>
+    </div>
+
+    <script type="module" src="agente.js"></script>
+  </body>
+</html>
