@@ -1,7 +1,7 @@
 # ImovelMap — contexto para o agente
 
 > Leia `PROJETO.md` antes de qualquer coisa. Este arquivo é o estado operacional.
-> Última atualização: 06/08/2026
+> Última atualização: 07/08/2026
 
 ---
 
@@ -17,7 +17,46 @@ o proprietário e oferece agenciamento.
 
 ---
 
-## Estado atual (06/08/2026)
+## Estado atual (07/08/2026)
+
+### ⭐ O achado que reorganiza o produto (07/08)
+
+**Porto Alegre publica a matrícula do registro de imóveis, de graça.**
+
+O dataset `itbi` em `dadosabertos.poa.br` traz 354.728 transações de 2020 a
+2026 e, em **99,97%** delas, `n_matricula_reg_imoveis` + `n_zona_reg_imoveis` —
+o número da matrícula e em qual dos seis cartórios ela está. Junto vêm número
+da porta, **número da unidade**, área privativa, CEP (100%), valor e data da
+última venda e ano de construção.
+
+Isso muda o funil inteiro. Antes: descobrir endereço → pagar busca às cegas no
+cartório → torcer. Agora: `matrícula 91792, 1ª Zona` → certidão de inteiro teor
+→ **nome e CPF do proprietário**. Sem busca paga.
+
+Estado: **4.074 matrículas cravadas** e **13.676 prédios** com matrículas
+candidatas. Roda sozinho no `pg_cron` (`imovelmap-itbi`, de 15 em 15 min).
+
+Duas coisas que valem mais que o número:
+
+1. **Área privativa, não construída total.** O anúncio publica privativa; o
+   IPTU só dá a construída total, que inclui parede e área comum e nunca bate.
+   Era isso que fazia o casamento por IPTU render tão pouco.
+
+2. **Número deduzido ≠ número publicado, e isso foi medido.** Teste cego:
+   escondi o número que a Auxiliadora e a Guarida publicam, deixei a inferência
+   escolher, comparei com a verdade em 544 endereços.
+
+   | evidência | acerto |
+   |---|---|
+   | rua + área (sem CEP) | 56,4% |
+   | rua + CEP + área | **78,9%** |
+
+   Mexer na tolerância de área não muda (78,6 / 82,8 / 79,1% para 1/2/3%): o
+   erro é **estrutural**. Quando o prédio certo não transacionou desde 2020, o
+   "único candidato" daquele CEP vira o vizinho, e ele casa. ~80% é o teto.
+   Por isso existe a coluna `numero_inferido`, a confiança cai para 78, a UI
+   avisa em amarelo, a matrícula diz que herda a dúvida — e inferir sem CEP
+   (56%) deixou de ser feito.
 
 ### ✅ Feito
 - **Supabase novo criado:** `jmtrkygcndaqnrgobnqo` (org `mtz`, sa-east-1, $10/mês, ACTIVE_HEALTHY)
@@ -87,6 +126,18 @@ o proprietário e oferece agenciamento.
 - **Conta de QA:** `qa-ingerir@imovelmap.com` (corretor comum), usada para testar a EF com
   JWT real. Script: `supabase/scripts/qa-token.sh`. **Apagar antes de abrir ao público.**
 
+### Base de dados de referência (07/08) — tudo público, tudo de graça
+
+| Tabela | Linhas | De onde | Serve para |
+|---|---|---|---|
+| `publico.itbi` | 354.728 | CKAN de POA, 7 recursos (2020-2026) | **matrícula + cartório**, nº da porta, unidade, última venda |
+| `publico.osm_enderecos` | 128.360 | extrato Geofabrik `sul-latest.osm.pbf` | candidatos de nº de porta no RS |
+| `publico.condominios` | 10.245 | sitemap de condomínios do Lopes | nome do prédio (6.858 anúncios nomeados), chave de CNPJ |
+
+Nenhuma delas precisou de `psql` nem de download de CSV gigante — era isso que
+travava a Fase 7. O CKAN de POA tem **datastore ativo**: dá para consultar por
+SQL via API e paginar. A carga inteira do ITBI leva ~6 min.
+
 ### ⚠️ Pendente
 
 - **A senha do Jean ainda não está definida.** Dashboard → Authentication → Users →
@@ -137,8 +188,24 @@ if (!user && !isAuthRoute && !isPublica) { /* redirect */ }
 - **Espelho de Overpass sem cobertura devolve 200 com `elements: []`.**
   `overpass.osm.ch` só indexa a Suíça e "funcionou" para Porto Alegre com zero prédios —
   sucesso aparente, dado vazio. Espelho sem prédio nenhum agora conta como falha.
-- **O `overpass-api.de` vive em 504.** O funil não deve depender de chamada ao vivo:
-  o certo é semear `publico.osm_predios` por bairro e deixar o cache responder.
+- **O `overpass-api.de` vive em 504.** E consultar cidade inteira derruba qualquer
+  espelho. Não insista: **use o extrato da Geofabrik** (`sul-latest.osm.pbf`, 421 MB,
+  publicado justamente para uso em massa) com `pyosmium`. A alternativa que tentei —
+  grade de 216 quadros — levava ~6 h e castigava um espelho público. O extrato inteiro
+  levou segundos para baixar e ~2 min para extrair 129.670 endereços do RS.
+  Espelho que funciona hoje, se precisar de consulta pontual: `overpass.private.coffee`.
+- **No Brasil o OSM mapeia COMÉRCIO, não prédio residencial.** "O ponto de endereço
+  mais próximo na mesma rua" devolve a padaria da esquina. Gravei 76 números de
+  vizinho com confiança 85 — `Av. João Pessoa 1027 · complemento "Padaria João
+  Pessoa"` — antes de olhar o resultado. Desfeito. Dos 129.670 pontos, só 75.213 têm
+  tag `building`. Hoje o OSM só dá **candidatos**; quem decide é o ITBI.
+- **`similarity(a,b) >= 0.6` não usa o índice GIN; o operador `%` usa.** Com 354 mil
+  linhas isso é a diferença entre `statement timeout` e 8 s por lote de 250.
+  O `%` lê `pg_trgm.similarity_threshold` — `set_config(..., true)` dentro da função.
+- **O papel da API roda com `safeupdate`:** `delete` sem `where` é recusado. Em temp
+  table use `truncate`. Funciona pelo SQL editor e falha pelo PostgREST — some no teste.
+- **`service_role` tem `statement_timeout` de 8 s por padrão**, curto demais para lote.
+  `alter role service_role set statement_timeout = '180s'`.
 - **`vercel env add` com `printf` sem newline grava valor VAZIO.** Usar `--value`.
   As `NEXT_PUBLIC_*` entram no bundle em build: trocar a var exige **redeploy**.
 - **Ao rotacionar a service_role key, atualize o Vault** — senão o cron da Rede Gaúcha
@@ -164,16 +231,25 @@ SUPABASE_SERVICE_ROLE_KEY=<pegar no dashboard — nunca commitar>
 
 Dashboard: https://supabase.com/dashboard/project/jmtrkygcndaqnrgobnqo
 
-**Ainda faltam na Vercel** — o deploy atual usa as vars antigas. Trocar e redeployar (Fase 5).
+Já trocadas na Vercel e em produção desde 06/08.
+⚠️ **As duas chaves secretas passaram por chat e devem ser rotacionadas.**
 
 ---
 
 ## Arquitetura em uma frase
 
-Os portais bloqueiam IP de datacenter (403 medido em ZAP, VivaReal e OLX em 05/08), então
-**a captura é feita por uma extensão Chrome no navegador do corretor** — IP residencial,
-sessão real, sem anti-bot. O servidor só guarda, cruza e enriquece. Sem Apify, sem worker
-de scraping, sem GitHub Actions.
+**Duas arquiteturas, e a segunda acabou sendo a principal.**
+
+*Coleta do servidor, sem navegador:* Rede Gaúcha, Guarida e Lopes **não** bloqueiam IP
+de datacenter e publicam sitemap com o catálogo inteiro. Rodam no `pg_cron`, sozinhos,
+sem máquina ligada. É de onde vem a maior parte da base hoje.
+
+*Coleta pela extensão:* os portais grandes bloqueiam (403 medido em ZAP, VivaReal e OLX em 05/08),
+então para eles a captura é feita por uma **extensão Chrome no navegador do corretor** —
+IP residencial, sessão real, sem anti-bot. Sem Apify, sem worker de scraping.
+
+O servidor guarda, cruza e **enriquece com dado público**: é o enriquecimento, não a
+coleta, que produz o que o portal esconde — endereço, matrícula, dono.
 
 O detalhe que faz funcionar: os portais são SPAs que chamam a própria API (`glue-api`) e
 recebem JSON completo. A extensão intercepta essa resposta no MAIN world — o portal faz o
@@ -183,22 +259,43 @@ scraping pra gente.
 
 ## Onde o trabalho continua
 
-Cronograma completo em `PROJETO.md` §7. Fases 2, 3 e 4 entregues. As próximas:
+Fases 2, 3, 4, 5, 6, 9, 10, 11 e 12 entregues. **A Fase 7 saiu do papel por um caminho
+diferente do planejado** — ver abaixo.
 
-**Fase 5 — religar o frontend. 🔴 Bloqueada no Jean.** Precisa trocar as env vars na
-Vercel (o build atual aponta para o Supabase deletado) e redeployar. Eu não tenho acesso
-à Vercel. Valores em "Credenciais" acima; a `SUPABASE_SERVICE_ROLE_KEY` sai do dashboard.
-Também depende de commitar `app/extensao/` no repo — e commit exige pedido explícito.
+**Fase 7 — base pública local. ✅ Destravada, sem `psql`.** O plano previa baixar o CSV
+de 225 MB do IPTU e carregar por `\copy`, o que exigia a senha do banco e travou a fase
+por semanas. Não precisava: `dadosabertos.poa.br` roda **CKAN com datastore ativo** —
+consulta por SQL via API, paginada, de graça. Foi assim que entraram IPTU, ITBI e
+alvarás. **Regra geral: antes de baixar arquivo grande, teste `datastore_search_sql`.**
 
-**Fase 6 — Extensão v0.2.** Descriptors de OLX e ImovelWeb + genérico por JSON-LD
-(o net-hook já publica `__NEXT_DATA__` e `ld+json`, falta só o extrator), sidepanel e
-modo varredura com checkpoint. Um portal novo = uma entrada em `core/descriptors.js`.
+**O que sobrou de POA e ainda não usamos:**
+- `cadastro-de-alvaras` (186.779) — tem logradouro + prédio + atividade + flag MEI, mas
+  **não tem nome nem CNPJ**. Pista fraca de "tem gente com negócio nesse endereço".
+- `projetos-de-edificacao-aprovados` (19.538) — sem endereço; o campo `numero` parece
+  ser setor/quarteirão/lote. Só serve se alguém achar a chave.
+- `iptu-beneficios-fiscais`, `itbi-imunidades` — não sondados.
 
-**Fase 7 — base pública local. ⚠️ Precisa de acesso direto ao Postgres.** A carga do
-IPTU 2026 (CSV de 225 MB) não passa por `execute_sql` do MCP — precisa de `psql`/`\copy`
-com a senha do banco, ou da Supabase CLI.
+**Próximos passos, em ordem de valor:**
 
----
+1. **CNPJ do condomínio → síndico.** Já temos 10.245 nomes de condomínio com endereço.
+   Falta uma busca CNPJ *por nome/endereço* que seja gratuita e legal — a BrasilAPI só
+   faz CNPJ→dados, não o inverso. O caminho oficial é o dump de Estabelecimentos da
+   Receita (bulk, alguns GB); a URL mudou para um portal SERPRO+ e não foi localizada
+   em 07/08. **Vale a pena: empresa registrada em endereço residencial quase sempre é
+   o morador.**
+2. **Mais fontes do RS.** Sondados e viáveis, ainda não coletados:
+   `lopes.com.br` (~4.500 imóveis no RS, robots libera) e `hoffmannimoveis.com.br`
+   (502, mesmo formato RSC da Rede Gaúcha).
+   **Descartados por `robots.txt` (`Disallow: /`):** chavesnamao, casaimoveis,
+   imobiliariatempo, cristofoli. Não se coleta de quem pediu que não coletassem.
+3. **Temperatura com comparáveis do ITBI.** Temos o preço real de venda de 354 mil
+   transações. Anúncio muito acima do que o prédio vendeu não sai — e dono de imóvel
+   encalhado é o melhor alvo de agenciamento que existe. Hoje `calcular_temperatura`
+   não olha isso.
+4. **Agrupamento entre portais.** ⏸️ Parado numa decisão do Jean: o limiar. Medido —
+   150 m gera ~14.000 pares, 60 m + mesmos dormitórios ~6.600, 25 m ~4.200.
+   Recomendo 60 m. Gravar 14 mil grupos errados envenena justamente o sinal
+   "N preços diferentes → SEM EXCLUSIVA" que o mapa existe para mostrar.
 
 ## Schema — o que o código já assume
 
