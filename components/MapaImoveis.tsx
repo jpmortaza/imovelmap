@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -97,14 +97,23 @@ const POA: [number, number] = [-30.0346, -51.2177];
 
 function FitBounds({ items }: { items: ImovelPublico[] }) {
   const map = useMap();
+  const jaEnquadrou = useRef(false);
+
   useEffect(() => {
+    // SÓ no primeiro carregamento. Reenquadrar a cada busca criaria laço com
+    // o carregamento por área: fit -> moveend -> fetch -> fit -> ...
+    // e o mapa nunca pararia de se mexer sob o dedo do corretor.
+    if (jaEnquadrou.current) return;
+
     const pts = items
       .filter((i) => i.lat != null && i.lng != null)
       .map((i) => [i.lat!, i.lng!] as [number, number]);
     if (pts.length === 0) return;
-    const bounds = L.latLngBounds(pts);
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+
+    jaEnquadrou.current = true;
+    map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 14 });
   }, [items, map]);
+
   return null;
 }
 
@@ -114,6 +123,8 @@ export default function MapaImoveis() {
   const [erro, setErro] = useState<string | null>(null);
   // imovel aberto no painel lateral (null = painel fechado)
   const [aberto, setAberto] = useState<ImovelPublico | null>(null);
+  // area visivel do mapa; o fetch passa a seguir para onde o corretor olha
+  const [bbox, setBbox] = useState<string | null>(null);
   const [filtros, setFiltros] = useState<Filtros>({
     tipo: "",
     q: "",
@@ -128,6 +139,7 @@ export default function MapaImoveis() {
     if (filtros.q.trim()) qs.set("q", filtros.q.trim());
     if (filtros.quartosMin) qs.set("quartos_min", filtros.quartosMin);
     if (filtros.precoMax) qs.set("preco_max", filtros.precoMax);
+    if (bbox) qs.set("bbox", bbox);
 
     setLoading(true);
     setErro(null);
@@ -147,7 +159,7 @@ export default function MapaImoveis() {
         }
       });
     return () => ctrl.abort();
-  }, [filtros]);
+  }, [filtros, bbox]);
 
   const pinned = useMemo(
     () => items.filter((i) => i.lat != null && i.lng != null),
@@ -180,6 +192,7 @@ export default function MapaImoveis() {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <ObservaArea aoMudar={setBbox} />
         <FitBounds items={pinned} />
         {pinned.map((i) => (
           <Marker
@@ -491,6 +504,45 @@ function Info({ r, v }: { r: string; v: React.ReactNode }) {
       <div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div>
     </div>
   );
+}
+
+
+/**
+ * Reporta a área visível do mapa. Com 52 mil imóveis não dá para mandar tudo
+ * ao navegador — e "os N mais recentes" fazia uma fonte esconder a outra.
+ * Carregar pelo enquadramento resolve os dois: sempre aparece o que está
+ * na tela, de todas as fontes.
+ */
+function ObservaArea({ aoMudar }: { aoMudar: (bbox: string) => void }) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const reportar = (mapa: L.Map) => {
+    if (timer.current) clearTimeout(timer.current);
+    // debounce: arrastar o mapa dispara dezenas de eventos
+    timer.current = setTimeout(() => {
+      const b = mapa.getBounds();
+      aoMudar(
+        [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]
+          .map((n) => n.toFixed(5))
+          .join(",")
+      );
+    }, 400);
+  };
+
+  const mapa = useMapEvents({
+    moveend: () => reportar(mapa),
+    zoomend: () => reportar(mapa)
+  });
+
+  useEffect(() => {
+    reportar(mapa);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
 }
 
 /** Legenda: vermelho é nosso, azul é oportunidade. */

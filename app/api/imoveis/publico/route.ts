@@ -44,7 +44,14 @@ export async function GET(req: Request) {
   const precoMax = url.searchParams.get("preco_max");
   const q = url.searchParams.get("q");
   const onlyGeo = url.searchParams.get("geo") === "1";
-  const limit = Math.min(Number(url.searchParams.get("limit") ?? 3000), 6000);
+  const fonte = url.searchParams.get("fonte");
+  // bbox=oesteLng,sulLat,lesteLng,norteLat — o mapa manda a area visivel.
+  // Sem isso, "os N mais recentes" fazia UMA fonte ocupar o mapa inteiro:
+  // a Auxiliadora (carregada antes) sumia atras da Rede Gaucha.
+  const bbox = (url.searchParams.get("bbox") ?? "")
+    .split(",").map(Number).filter((n) => Number.isFinite(n));
+  // PostgREST corta em 1000 linhas por requisicao; pedir mais nao adianta
+  const limit = Math.min(Number(url.searchParams.get("limit") ?? 1000), 1000);
 
   let query = svc
     .from("imoveis")
@@ -52,12 +59,25 @@ export async function GET(req: Request) {
       "id,title,transaction_type,property_type,price,price_formatted,area,bedrooms,bathrooms,parking_spaces,neighborhood,city,state,latitude,longitude,images,source,source_url"
     )
     .eq("is_active", true)
-    .order("first_seen_at", { ascending: false })
+    // Dentro de um enquadramento queremos AMOSTRA, nao "os mais recentes":
+    // ordenar por data faz a fonte carregada por ultimo ocupar o mapa
+    // inteiro e a outra sumir. `id` e uuid v4, entao ordenar por ele
+    // distribui as fontes de forma uniforme.
+    .order(bbox.length === 4 ? "id" : "first_seen_at", {
+      ascending: bbox.length === 4
+    })
     .limit(limit);
 
-  if (onlyGeo) {
+  if (onlyGeo || bbox.length === 4) {
     query = query.not("latitude", "is", null).not("longitude", "is", null);
   }
+  if (bbox.length === 4) {
+    const [oeste, sul, leste, norte] = bbox;
+    query = query
+      .gte("longitude", oeste).lte("longitude", leste)
+      .gte("latitude", sul).lte("latitude", norte);
+  }
+  if (fonte) query = query.eq("source", fonte);
   if (transactionType) query = query.eq("transaction_type", transactionType);
   if (cidade) query = query.ilike("city", `%${cidade}%`);
   if (bairro) query = query.ilike("neighborhood", `%${bairro}%`);
