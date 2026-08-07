@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import LogoutButton from "./logout-button";
 import BuscarForm from "./buscar-form";
 import FavoritarButton from "./favoritar-button";
 
@@ -19,16 +18,6 @@ export default async function ImoveisPage({
   const {
     data: { user }
   } = await supabase.auth.getUser();
-
-  let isSuperAdmin = false;
-  if (user) {
-    const { data: me } = await supabase
-      .from("corretores")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-    isSuperAdmin = me?.role === "super_admin";
-  }
 
   const pagina = Math.max(1, Number(searchParams.pagina ?? 1) || 1);
   const de = (pagina - 1) * POR_PAGINA;
@@ -122,23 +111,11 @@ export default async function ImoveisPage({
   };
 
   return (
-    <div style={{ maxWidth: 1240, margin: "0 auto", padding: 24 }}>
-      <header style={cabecalho}>
-        <div>
-          <h1 style={{ fontSize: 26, margin: 0 }}>
-            <Link href="/" style={{ color: "#111" }}>ImovelMap</Link> · Imóveis
-          </h1>
-          <p style={{ color: "#666", fontSize: 13, margin: "4px 0 0" }}>
-            {user ? `Logado como ${user.email}` : "Base compartilhada"}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <Link href="/mapa" style={navLink}>Mapa</Link>
-          <Link href="/extensao" style={navLink}>Extensão</Link>
-          {isSuperAdmin && <Link href="/admin" style={navBtn}>Admin</Link>}
-          {user ? <LogoutButton /> : <Link href="/login" style={navBtn}>Entrar</Link>}
-        </div>
-      </header>
+    <div>
+      {/* o cabeçalho saiu daqui: navegação agora é o menu lateral (CascaApp) */}
+      <h1 style={{ fontSize: 24, margin: "0 0 14px", letterSpacing: -0.5 }}>
+        Buscar imóveis
+      </h1>
 
       <BuscarForm cidades={cidades} />
 
@@ -291,10 +268,6 @@ function paginasVisiveis(atual: number, total: number): (number | "…")[] {
   return saida;
 }
 
-const cabecalho: React.CSSProperties = {
-  display: "flex", justifyContent: "space-between", alignItems: "center",
-  marginBottom: 18, gap: 12, flexWrap: "wrap"
-};
 const grade: React.CSSProperties = {
   display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(265px, 1fr))", gap: 14
 };
@@ -320,12 +293,6 @@ const btnPag: React.CSSProperties = {
 };
 const btnPagAtivo: React.CSSProperties = {
   background: "#111", color: "#fff", borderColor: "#111", fontWeight: 700
-};
-const navLink: React.CSSProperties = {
-  fontSize: 14, color: "#444", padding: "8px 12px", borderRadius: 8
-};
-const navBtn: React.CSSProperties = {
-  fontSize: 14, background: "#111", color: "#fff", padding: "8px 14px", borderRadius: 8
 };
 const caixaErro: React.CSSProperties = {
   padding: 12, background: "#fdecea", color: "#b00020",

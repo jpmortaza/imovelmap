@@ -1,4 +1,5 @@
 import Link from "next/link";
+import CascaApp from "@/components/CascaApp";
 import { requireSuperAdmin } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -11,34 +12,29 @@ export default async function AdminLayout({
   await requireSuperAdmin();
 
   return (
-    <div style={{ minHeight: "100vh" }}>
-      <nav
-        style={{
-          background: "#111",
-          color: "#fff",
-          padding: "12px 24px",
-          display: "flex",
-          gap: 20,
-          alignItems: "center"
-        }}
-      >
-        <strong style={{ marginRight: 20 }}>ImovelMap · Admin</strong>
-        <Link href="/admin/fontes" style={linkStyle}>Fontes</Link>
-        <Link href="/admin/extracoes" style={linkStyle}>Extrações</Link>
-        <Link href="/admin/corretores" style={linkStyle}>Corretores</Link>
-        <Link href="/imoveis" style={{ ...linkStyle, marginLeft: "auto" }}>
-          ← Voltar
+    <CascaApp>
+      <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+        <Link href="/admin/fontes" style={aba}>
+          Fontes
         </Link>
-      </nav>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: 24 }}>
-        {children}
+        <Link href="/admin/extracoes" style={aba}>
+          Extrações
+        </Link>
+        <Link href="/admin/corretores" style={aba}>
+          Corretores
+        </Link>
       </div>
-    </div>
+      {children}
+    </CascaApp>
   );
 }
 
-const linkStyle: React.CSSProperties = {
-  color: "#fff",
-  fontSize: 14,
-  opacity: 0.85
+const aba: React.CSSProperties = {
+  fontSize: 13,
+  color: "#333",
+  background: "#fff",
+  border: "1px solid #e2e6ea",
+  borderRadius: 8,
+  padding: "7px 13px",
+  textDecoration: "none"
 };

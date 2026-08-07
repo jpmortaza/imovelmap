@@ -45,7 +45,7 @@ export async function GET() {
   const svc = servico();
   const { data, error } = await svc
     .from("corretores")
-    .select("id, email, nome, telefone, creci, role, ativo, cota_diaria, created_at")
+    .select("id, email, nome, telefone, creci, role, ativo, cota_diaria, cidade, bairros, created_at")
     .order("created_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -74,6 +74,12 @@ export async function POST(req: Request) {
     ? body.role
     : "corretor";
   const cota = Math.max(0, Math.min(500, Number(body.cota_diaria ?? 10) || 10));
+  // territorio: definido ja no cadastro, senao o corretor entra e o painel
+  // dele nao tem o que mostrar
+  const cidade = String(body.cidade ?? "").trim() || null;
+  const bairros = Array.isArray(body.bairros)
+    ? body.bairros.map((b: unknown) => String(b).trim()).filter(Boolean).slice(0, 30)
+    : [];
 
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return NextResponse.json({ error: "e-mail inválido" }, { status: 400 });
@@ -97,7 +103,7 @@ export async function POST(req: Request) {
   // o trigger handle_new_user já criou a linha em corretores; aqui só ajustamos
   const { error: errPerfil } = await svc
     .from("corretores")
-    .update({ nome, role, cota_diaria: cota, ativo: true })
+    .update({ nome, role, cota_diaria: cota, ativo: true, cidade, bairros })
     .eq("id", criado.user!.id);
 
   if (errPerfil) {
@@ -141,6 +147,9 @@ export async function PATCH(req: Request) {
   if (body.cota_diaria != null)
     campos.cota_diaria = Math.max(0, Math.min(500, Number(body.cota_diaria) || 0));
   if (body.nome !== undefined) campos.nome = String(body.nome).trim() || null;
+  if (body.cidade !== undefined) campos.cidade = String(body.cidade).trim() || null;
+  if (Array.isArray(body.bairros))
+    campos.bairros = body.bairros.map((b: unknown) => String(b).trim()).filter(Boolean).slice(0, 30);
 
   if (Object.keys(campos).length === 0) {
     return NextResponse.json({ error: "nada para alterar" }, { status: 400 });

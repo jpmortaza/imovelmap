@@ -103,6 +103,10 @@ export async function GET(req: Request) {
   if (transactionType) query = query.eq("transaction_type", transactionType);
   if (cidade) query = query.ilike("city", `%${cidade}%`);
   if (bairro) query = query.ilike("neighborhood", `%${bairro}%`);
+  // `bairros` (plural) = territorio do corretor: lista exata, nao busca livre
+  const bairros = (url.searchParams.get("bairros") ?? "")
+    .split(",").map((b) => b.trim()).filter(Boolean);
+  if (bairros.length) query = query.in("neighborhood", bairros);
   if (quartosMin) query = query.gte("bedrooms", Number(quartosMin));
   if (precoMin) query = query.gte("price", Number(precoMin));
   if (precoMax) query = query.lte("price", Number(precoMax));

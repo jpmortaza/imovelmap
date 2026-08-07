@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Territorio from "./territorio";
 
 type Corretor = {
   id: string;
@@ -9,6 +10,8 @@ type Corretor = {
   role: string;
   ativo: boolean;
   cota_diaria: number;
+  cidade: string | null;
+  bairros: string[] | null;
   created_at: string;
 };
 
@@ -22,6 +25,10 @@ export default function CorretoresPage() {
   const [nome, setNome] = useState("");
   const [role, setRole] = useState("corretor");
   const [cota, setCota] = useState("10");
+  const [cidade, setCidade] = useState("");
+  const [bairros, setBairros] = useState<string[]>([]);
+  // território de quem já existe, editado direto na linha da tabela
+  const [editando, setEditando] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
   const carregar = useCallback(async () => {
@@ -51,7 +58,9 @@ export default function CorretoresPage() {
       const r = await fetch("/api/admin/corretores", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, nome, role, cota_diaria: Number(cota) })
+        body: JSON.stringify({
+          email, nome, role, cota_diaria: Number(cota), cidade, bairros
+        })
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error);
@@ -59,6 +68,8 @@ export default function CorretoresPage() {
       setLink(j.link ?? null);
       setEmail("");
       setNome("");
+      setCidade("");
+      setBairros([]);
       await carregar();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "erro");
@@ -133,6 +144,27 @@ export default function CorretoresPage() {
             <input type="number" min={0} max={500} value={cota}
               onChange={(e) => setCota(e.target.value)} style={input} />
           </Campo>
+        </div>
+
+        {/* ⭐ Território já no cadastro: sem cidade e bairro o corretor entra
+            e o painel dele não tem o que mostrar. */}
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #f0f0f0" }}>
+          <div style={{ fontSize: 12.5, color: "#666", marginBottom: 8 }}>
+            <b>Território</b> — é o que ele vê ao entrar: o bairro inteiro, com
+            mapa, quanto já é nosso e quanto é oportunidade.
+          </div>
+          <Territorio
+            cidade={cidade}
+            bairros={bairros}
+            onChange={(c, b) => {
+              setCidade(c);
+              setBairros(b);
+            }}
+            compacto
+          />
+        </div>
+
+        <div style={{ marginTop: 14 }}>
           <button type="submit" disabled={salvando} style={btn}>
             {salvando ? "criando…" : "Criar conta"}
           </button>
@@ -164,7 +196,7 @@ export default function CorretoresPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead style={{ background: "#f6f7f9" }}>
               <tr>
-                <Th>Corretor</Th><Th>Papel</Th><Th>Cota</Th><Th>Estado</Th><Th></Th>
+                <Th>Corretor</Th><Th>Território</Th><Th>Papel</Th><Th>Cota</Th><Th>Estado</Th><Th></Th>
               </tr>
             </thead>
             <tbody>
@@ -173,6 +205,27 @@ export default function CorretoresPage() {
                   <Td>
                     <div style={{ fontWeight: 600 }}>{c.nome ?? "—"}</div>
                     <div style={{ fontSize: 11.5, color: "#888" }}>{c.email}</div>
+                  </Td>
+                  <Td>
+                    {editando === c.id ? (
+                      <div style={{ minWidth: 300 }}>
+                        <Territorio
+                          cidade={c.cidade ?? ""}
+                          bairros={c.bairros ?? []}
+                          onChange={(cid, bs) => alterar(c.id, { cidade: cid, bairros: bs })}
+                          compacto
+                        />
+                        <button onClick={() => setEditando(null)} style={{ ...btnSec, marginTop: 6 }}>
+                          pronto
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setEditando(c.id)} style={btnSec}>
+                        {c.bairros?.length
+                          ? `${c.bairros.slice(0, 2).join(", ")}${c.bairros.length > 2 ? ` +${c.bairros.length - 2}` : ""}`
+                          : "definir bairro"}
+                      </button>
+                    )}
                   </Td>
                   <Td>
                     <select

@@ -607,6 +607,17 @@ function ContatosCnpj({ imovel }: { imovel: Record<string, any> }) {
                 )}
               </div>
             )}
+            {/* Para LTDA a razão social é o nome da empresa; quem interessa
+                é o quadro societário. Pessoa física do QSA numa empresa
+                registrada em apartamento é, quase sempre, quem mora nele. */}
+            {Array.isArray(x.socios) && x.socios.length > 0 && (
+              <div style={{ fontSize: 13, marginTop: 6 }}>
+                <span style={{ color: "#777" }}>
+                  {x.socios.length > 1 ? "sócios: " : "sócio: "}
+                </span>
+                <b>{x.socios.join(" · ")}</b>
+              </div>
+            )}
             {x.complemento && (
               <div style={{ fontSize: 11.5, color: "#777", marginTop: 3 }}>
                 cadastro: {x.complemento}

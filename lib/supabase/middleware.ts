@@ -59,9 +59,12 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirect);
   }
 
+  // Quem entra vai para o PAINEL, nao para a lista: a primeira tela do
+  // corretor e o territorio dele, nao um catalogo.
   if (user && url.pathname === "/login") {
     const redirect = url.clone();
-    redirect.pathname = "/imoveis";
+    redirect.pathname = "/painel";
+    redirect.search = "";
     return NextResponse.redirect(redirect);
   }
 

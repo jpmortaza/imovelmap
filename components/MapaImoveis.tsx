@@ -122,7 +122,20 @@ function FitBounds({ items }: { items: ImovelPublico[] }) {
   return null;
 }
 
-export default function MapaImoveis() {
+/**
+ * `territorio` fixa o mapa no(s) bairro(s) do corretor: o painel usa isso para
+ * mostrar "o meu bairro inteiro" sem que ele precise filtrar nada. Sem a prop,
+ * o mapa e livre (rota /mapa).
+ */
+export default function MapaImoveis({
+  territorio,
+  cidade,
+  altura
+}: {
+  territorio?: string[];
+  cidade?: string;
+  altura?: string;
+} = {}) {
   const [items, setItems] = useState<ImovelPublico[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -151,6 +164,8 @@ export default function MapaImoveis() {
     if (filtros.areaMin) qs.set("area_min", filtros.areaMin);
     if (filtros.carteira === "so") qs.set("fonte", FONTE_NOSSA);
     if (filtros.carteira === "excluir") qs.set("excluir", FONTE_NOSSA);
+    if (territorio?.length) qs.set("bairros", territorio.join(","));
+    if (cidade) qs.set("cidade", cidade);
     if (bbox) qs.set("bbox", bbox);
 
     setLoading(true);
@@ -171,7 +186,7 @@ export default function MapaImoveis() {
         }
       });
     return () => ctrl.abort();
-  }, [filtros, bbox]);
+  }, [filtros, bbox, territorio, cidade]);
 
   const pinned = useMemo(
     () => items.filter((i) => i.lat != null && i.lng != null),
@@ -182,7 +197,7 @@ export default function MapaImoveis() {
     <div
       style={{
         position: "relative",
-        height: "calc(100vh - 64px)",
+        height: altura ?? "calc(100vh - 64px)",
         width: "100%"
       }}
     >

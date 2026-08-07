@@ -12,7 +12,7 @@ export default function LoginForm() {
   // cair aqui; so aceitamos caminho interno, para nao virar open redirect
   const sp = useSearchParams();
   const de = sp.get("de");
-  const destino = de && de.startsWith("/") && !de.startsWith("//") ? de : "/imoveis";
+  const destino = de && de.startsWith("/") && !de.startsWith("//") ? de : "/painel";
   // O client so nasce quando o usuario envia o formulario. Criar no corpo do
   // componente faz o prerender do build exigir as env vars — e o build quebra
   // se elas nao estiverem disponiveis naquele instante.
