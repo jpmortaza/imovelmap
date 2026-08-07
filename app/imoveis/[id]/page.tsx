@@ -176,7 +176,48 @@ export default async function ImovelPage({ params }: { params: { id: string } })
                   : "—"
               }
             />
+            {imovel.preco_ref_m2 && (
+              <Dado
+                rotulo="R$/m² do prédio"
+                valor={
+                  <span title="mediana das vendas deste prédio no ITBI, últimos 3 anos">
+                    {brl(imovel.preco_ref_m2)}
+                  </span>
+                }
+              />
+            )}
           </div>
+
+          {/* ⭐ A frase mais útil da página para quem vai ligar para o dono:
+              imóvel muito acima do que o prédio vende não sai, e dono de
+              imóvel encalhado já tentou do jeito dele. */}
+          {imovel.sobrepreco != null && imovel.sobrepreco > 0.25 && (
+            <div
+              style={{
+                marginTop: 14,
+                background: imovel.sobrepreco > 0.6 ? "#fef2f2" : "#fff8ed",
+                border: `1px solid ${imovel.sobrepreco > 0.6 ? "#fecaca" : "#f0d9a0"}`,
+                borderRadius: 9,
+                padding: "11px 13px",
+                fontSize: 13,
+                lineHeight: 1.55,
+                color: imovel.sobrepreco > 0.6 ? "#991b1b" : "#7a5600"
+              }}
+            >
+              <b>
+                Pede {Math.round(imovel.sobrepreco * 100)}% acima do que este
+                prédio vende.
+              </b>{" "}
+              A mediana das transações registradas aqui nos últimos 3 anos é{" "}
+              {brl(imovel.preco_ref_m2)}/m². Anúncio muito acima do prédio
+              costuma encalhar — e quem está há meses sem vender escuta
+              proposta de agenciamento.
+              <div style={{ fontSize: 11.5, opacity: 0.75, marginTop: 5 }}>
+                Comparação com o prédio inteiro: cobertura ou unidade reformada
+                fica acima da mediana sem estar cara.
+              </div>
+            </div>
+          )}
         </section>
 
         <section style={cartao}>
