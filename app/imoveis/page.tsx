@@ -63,6 +63,11 @@ export default async function ImoveisPage({
   // "nós somos a Auxiliadora": o que ela já tem não é oportunidade
   if (searchParams.sem_auxiliadora === "1")
     query = query.neq("source", "auxiliadorapredial.com.br");
+  // ⭐ nome e telefone de quem está na unidade, do cadastro de CNPJ
+  if (searchParams.com_contato === "1")
+    query = query.not("contatos_cnpj", "is", null);
+  // pede muito acima do que o prédio vende: costuma encalhar
+  if (searchParams.caro === "1") query = query.gte("sobrepreco", 0.6);
   if (searchParams.fsbo === "1") query = query.eq("tipo_anunciante", "proprietario");
   // array vazio '{}' = sem telefone; qualquer coisa diferente disso tem número
   if (searchParams.com_telefone === "1") query = query.neq("telefones", "{}");
