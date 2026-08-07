@@ -7,9 +7,12 @@
 
 ## O que é
 
-Plataforma de agenciamento de imóveis: mapa público + painel do corretor. O corretor
-recebe uma cota diária de imóveis, descobre o endereço que o portal esconde, identifica
-o proprietário e oferece agenciamento.
+Plataforma de agenciamento de imóveis: vitrine pública + área do corretor. O corretor
+trabalha um **território** (cidade + bairros), vê o bairro inteiro no mapa, descobre o
+endereço que o portal esconde, identifica o proprietário e oferece agenciamento.
+
+⚠️ O mapa **não** é público — ver "O que é público e o que não é". Até 07/08 ele
+estava aberto em `/`; o Jean reverteu, e com razão: ele mostra a carteira.
 
 **Site:** imovelmap.com · superag.vercel.app
 **Repo:** https://github.com/jpmortaza/imovelmap (Next.js 14 App Router, **público**)
@@ -132,6 +135,7 @@ Duas coisas que valem mais que o número:
 |---|---|---|---|
 | `publico.itbi` | 354.728 | CKAN de POA, 7 recursos (2020-2026) | **matrícula + cartório**, nº da porta, unidade, última venda |
 | `publico.cnpj_estabelecimentos` | 856.167 | dump da Receita, filtrado em fluxo | **nome e telefone de quem está na unidade** |
+| `publico.cnpj_socios` | 501.318 | mesmo dump, arquivo `Socios` | nome das pessoas por trás das LTDA |
 | `publico.osm_enderecos` | 128.360 | extrato Geofabrik `sul-latest.osm.pbf` | candidatos de nº de porta no RS |
 | `publico.condominios` | 10.245 | sitemap de condomínios do Lopes | nome do prédio (8.557 anúncios nomeados) |
 
@@ -142,6 +146,11 @@ da pessoa. 770 anúncios saíram com nome e celular da unidade exata, todos com
 matrícula junto. Ver `0032`/`0033` para os três filtros que separam morador de
 endereço virtual de contabilidade. **Isso não prova propriedade** — quem
 confirma é a matrícula, e a UI diz isso.
+
+Para LTDA a razão social é o nome da empresa, então entra o **quadro
+societário** (`0035`): *"Barão do Guaíba, 1000 · ap 801 → Elixir Software
+Development LTDA → Carlos Alberto Bueno, (51) 3364-1140"*. O CPF já vem
+mascarado na fonte e não é guardado.
 
 Nenhuma delas precisou de `psql` nem de download de CSV gigante — era isso que
 travava a Fase 7. O CKAN de POA tem **datastore ativo**: dá para consultar por
@@ -154,22 +163,49 @@ SQL via API e paginar. A carga inteira do ITBI leva ~6 min.
 - O `schema.sql` original ficava fora do repo e se perdeu. O schema em `PROJETO.md` foi
   reconstruído lendo o código — agora vive em `supabase/migrations/`.
 
-### 🔴 Bug no código do repo (não é config)
+### 🔒 O que é público e o que não é (decidido pelo Jean em 07/08)
 
-`lib/supabase/middleware.ts` redireciona **toda** rota sem sessão para `/login` —
-inclusive `/` (o mapa público) e `/api/imoveis/publico`. Ou seja, **o mapa público
-não é público**: visitante anônimo cai no login e o `MapaImoveis` nunca carrega.
+**O mapa NÃO é público, e não deve voltar a ser.** Ele mostra onde cada imóvel
+está e o que já é da Auxiliadora (vermelho) contra a concorrência (azul) — é o
+mapa de oportunidades da operação. Aberto, entregaria a carteira e o resultado
+de todo o enriquecimento para qualquer concorrente que abrisse o site.
 
-A RLS já foi desenhada para isso funcionar (o `anon` tem `grant select` nas colunas
-do card). Falta só o middleware deixar passar. Correção quando for mexer no repo:
+| rota | quem entra | o que mostra |
+|---|---|---|
+| `/` | qualquer um | **vitrine**: só número agregado (total, cidades, bairros, preço mediano, top 12 bairros de POA com a mediana). Zero endereço, zero coordenada, zero anúncio individual |
+| `/extensao` | qualquer um | download e instalação |
+| `/painel` | corretor | **o bairro dele** — o padrão depois do login |
+| `/painel/fila` | corretor | a cota do dia |
+| `/mapa` | corretor | o mapa de prospecção |
+| `/imoveis` | corretor | busca com filtros |
+| `/admin/*` | super_admin | fontes, extrações, corretores |
+| `/api/imoveis/publico` | corretor | alimenta o mapa — o nome "publico" ficou do tempo em que ele era aberto |
 
-```ts
-const isPublica =
-  url.pathname === "/" ||
-  url.pathname.startsWith("/api/imoveis/publico") ||
-  url.pathname.startsWith("/extensao");
-if (!user && !isAuthRoute && !isPublica) { /* redirect */ }
-```
+Três detalhes do desenho que não são opcionais:
+
+- **O guard da API está NA ROTA, não só no middleware.** Ela usa a `service_role`,
+  que passa por cima da RLS; um dia alguém mexe no matcher sem lembrar disso.
+- **`cache-control: private`** nessa rota. Estava `public, s-maxage=60` — num CDN
+  isso serviria a resposta autenticada para quem não entrou.
+- **Middleware devolve 401 JSON em `/api/*`**, não redirect: o `fetch` do mapa
+  recebia HTML e quebrava ao ler como JSON. E guarda `?de=` para o login
+  devolver a pessoa ao lugar de onde veio (só caminho interno, senão vira open
+  redirect).
+
+### 🧭 A jornada do corretor (07/08)
+
+O corretor trabalha um **território**, não um catálogo. `corretores.cidade` +
+`corretores.bairros[]`, definidos já no cadastro em `/admin/corretores`
+escolhendo de uma lista do que existe na base — digitar livre produz
+"Petropolis" sem acento, que não casa com nada, e o corretor abre um painel
+vazio culpando o produto. Sem território, o painel diz isso em vez de mostrar
+a cidade inteira.
+
+Login cai em `/painel`, que mostra o bairro inteiro com mapa e cada número
+como link para a lista já filtrada. O menu é **lateral** (`components/CascaApp.tsx`
++ `MenuLateral.tsx`), uma casca só para painel, lista, mapa e admin — antes cada
+layout tinha a própria barra e elas divergiram (o link "Mapa" do painel ainda
+apontava para `/` depois que o mapa mudou de rota).
 
 
 ### 🔒 Regras de segurança do banco (o repo é público — a anon key está à vista)
@@ -220,6 +256,20 @@ if (!user && !isAuthRoute && !isPublica) { /* redirect */ }
 - **Ao rotacionar a service_role key, atualize o Vault** — senão o cron da Rede Gaúcha
   para em silêncio: `select vault.update_secret((select id from vault.secrets where
   name='service_role_key'), '<nova>');`
+- **`useSearchParams` obriga Suspense, e `fallback={null}` serve página VAZIA.**
+  Usei o hook em `/login` para ler `?de=`. Resultado em produção: 5,5 KB de HTML
+  com **zero `<input>`** — o formulário só aparecia depois da hidratação, na
+  porta de entrada do produto. Passou porque `curl` devolvia 200 e o build não
+  reclama de página vazia. Se precisar de query param num client component,
+  leia de `window.location.search` no evento, não no render.
+- **Coordenada sem ponto decimal e a "ilha nula".** 46 anúncios com `-30126` no
+  lugar de `-30.126` e 147 em `(0,0)`. A média da latitude de Petrópolis dava
+  **-49,79** — no oceano. Ao agregar geo: use **mediana** e recorte pela caixa
+  do RS (`lat -33,9..-27,0`, `lng -57,7..-49,6`), senão um outlier move o mapa.
+- **O dump da Receita tem bytes NUL no meio de campos de texto.** Decodificado
+  em latin-1, o `jsonb` recusa com *"unsupported Unicode escape sequence"*.
+  Limpar controles antes de enviar. E lote de 3.000 devolve HTTP 400 no
+  PostgREST — 800 passa.
 - **Extrator com caminho fixo quebra em silêncio.** O da OLX procurava
   `props.pageProps.ads`; quando o portal mudou, caía no JSON-LD e trazia **1 imóvel**,
   parecendo pouca oferta. Hoje varre a árvore atrás de listas que *pareçam* anúncios.
@@ -286,13 +336,14 @@ alvarás. **Regra geral: antes de baixar arquivo grande, teste `datastore_search
 
 **Próximos passos, em ordem de valor:**
 
-1. ✅ **CNPJ por endereço — feito.** O dump está em
+1. ✅ **CNPJ por endereço e quadro societário — feito.** O dump está em
    `dados-abertos-rf-cnpj.casadosdados.com.br/arquivos/AAAA-MM-DD/` (espelho com CDN;
    o site da Receita migrou para um portal SERPRO+ e as URLs antigas dão 404).
    Município de POA no cadastro da Receita = **8801**. Atualiza mensal — recarregar
-   com `cnpj-poa.py` + `cnpj-nomes.py`. **O que ainda falta:** o arquivo `Socios`,
-   que dá os sócios das LTDA (hoje só o nome de MEI/empresário individual sai
-   direto).
+   com `cnpj-poa.py` + `cnpj-nomes.py` + `cnpj-socios.py` (em
+   `supabase/scripts/`). Os três arquivos vêm em fluxo, sem baixar os ~5 GB
+   para disco: cada zip da Receita tem um único membro, então dá para
+   descomprimir com `zlib` raw e descartar o que não é município 8801.
 2. **Mais fontes do RS.** Sondados e viáveis, ainda não coletados:
    `lopes.com.br` (~4.500 imóveis no RS, robots libera) e `hoffmannimoveis.com.br`
    (502, mesmo formato RSC da Rede Gaúcha).
