@@ -122,9 +122,13 @@ function extrair(html: string, url: string): Record<string, unknown> | null {
 /**
  * Quem está anunciando, e por qual telefone.
  *
- * ⭐ O detector de FSBO sai de graça: anúncio de imobiliária traz **CRECI**.
- *    Sem CRECI, o telefone publicado tende a ser do PRÓPRIO DONO — que é
- *    exatamente quem o corretor quer encontrar.
+ * ⚠️ NÃO tente detectar FSBO aqui. A primeira versão usava "sem CRECI = é o
+ *    dono" e marcou 797 anúncios como proprietário — TODOS eram imobiliária
+ *    (AC Clipes, UP Imóveis, Ferreira...) cujo CRECI simplesmente não estava
+ *    no HTML. A regra é inválida por construção: a Rede Gaúcha é uma REDE DE
+ *    IMOBILIÁRIAS, todo anúncio tem uma atrás. Dono nenhum anuncia aqui.
+ *    Detecção de FSBO faz sentido na OLX e nos portais genéricos, onde
+ *    particular publica de verdade — não neste.
  */
 // Telefone do PORTAL, não do anunciante: aparece em todo anúncio e polui.
 // Vem do bloco `agencies[]` (a rede em si), não da imobiliária do imóvel.
@@ -158,8 +162,8 @@ function extrairAnunciante(flight: string) {
     whatsapp,
     anuncianteCreci: creci,
     anunciante,
-    // com CRECI é imobiliária; sem CRECI e com telefone, provável particular
-    tipoAnunciante: creci ? "imobiliaria" : fones.size ? "proprietario" : "desconhecido",
+    // portal de rede: sempre imobiliária. Ver o aviso acima.
+    tipoAnunciante: anunciante || creci ? "imobiliaria" : "desconhecido",
   };
 }
 
