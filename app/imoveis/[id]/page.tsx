@@ -356,17 +356,48 @@ export default async function ImovelPage({ params }: { params: { id: string } })
  * Cartórios de registro de imóveis de Porto Alegre, por zona.
  *
  * O ITBI devolve `n_zona_reg_imoveis` — é o número da zona, e é ela que diz
- * em QUAL cartório a matrícula está. Sem isso o corretor teria que ligar para
- * seis cartórios até achar o dele.
+ * em QUAL dos seis cartórios a matrícula está. Sem isso o corretor ligaria
+ * para todos até achar o certo.
+ *
+ * Endereços e telefones conferidos na base de conhecimento da Procempa (a
+ * própria prefeitura), não em site de intermediário que vende certidão.
  */
-const CARTORIOS: Record<string, string> = {
-  "1": "Registro de Imóveis da 1ª Zona",
-  "2": "Registro de Imóveis da 2ª Zona",
-  "3": "Registro de Imóveis da 3ª Zona",
-  "4": "Registro de Imóveis da 4ª Zona",
-  "5": "Registro de Imóveis da 5ª Zona",
-  "6": "Registro de Imóveis da 6ª Zona"
+const CARTORIOS: Record<string, { nome: string; endereco: string; fone: string }> = {
+  "1": {
+    nome: "Registro de Imóveis da 1ª Zona",
+    endereco: "Rua Anita Garibaldi, 1855 / Loja 1835 — Boa Vista",
+    fone: "(51) 3018-2900"
+  },
+  "2": {
+    nome: "Registro de Imóveis da 2ª Zona",
+    endereco: "Rua Siqueira Campos, 1163, 3º andar — Centro Histórico",
+    fone: "(51) 3013-4660"
+  },
+  "3": {
+    nome: "Registro de Imóveis da 3ª Zona",
+    endereco: "Rua Coronel Genuíno, 421, sala 501 — Centro Histórico",
+    fone: "(51) 3021-8400"
+  },
+  "4": {
+    nome: "Registro de Imóveis da 4ª Zona",
+    endereco: "Rua Coronel Genuíno, 421, 13º andar — Centro Histórico",
+    fone: "(51) 3079-4300"
+  },
+  "5": {
+    nome: "Registro de Imóveis da 5ª Zona",
+    endereco: "Rua Coronel Genuíno, 421, conj. 802 — Centro",
+    fone: "(51) 3221-2854"
+  },
+  "6": {
+    nome: "Registro de Imóveis da 6ª Zona",
+    endereco: "Rua Washington Luiz, 820, 5º andar — Centro Histórico",
+    fone: "(51) 3103-1009"
+  }
 };
+
+// Plataforma oficial dos registradores: dá para pedir a certidão informando a
+// matrícula e o cartório, sem ir ao balcão. Não é intermediário — é o ONR.
+const ONR = "https://registradores.onr.org.br/";
 
 /** "há 8 anos" — o sinal de prospecção que o valor sozinho não dá. */
 function tempoDesde(data: string | null): string | null {
@@ -383,7 +414,7 @@ function Matricula({ imovel }: { imovel: Record<string, any> }) {
   const cands = Array.isArray(imovel.matricula_candidatas) ? imovel.matricula_candidatas : null;
   if (!imovel.matricula && !cands?.length) return null;
 
-  const zona = imovel.matricula_zona ? CARTORIOS[String(imovel.matricula_zona)] : null;
+  const cartorio = imovel.matricula_zona ? CARTORIOS[String(imovel.matricula_zona)] : null;
   const desde = tempoDesde(imovel.ultima_venda_data);
 
   return (
@@ -396,13 +427,36 @@ function Matricula({ imovel }: { imovel: Record<string, any> }) {
             nº {imovel.matricula}
           </div>
           <div style={{ color: "#157f3c", fontWeight: 600, fontSize: 14, marginTop: 2 }}>
-            {zona ?? `zona ${imovel.matricula_zona ?? "?"}`}
+            {cartorio?.nome ?? `zona ${imovel.matricula_zona ?? "?"}`}
           </div>
+          {cartorio && (
+            <div style={{ fontSize: 12.5, color: "#555", marginTop: 3 }}>
+              {cartorio.endereco} · {cartorio.fone}
+            </div>
+          )}
+          <a
+            href={ONR}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "inline-block",
+              marginTop: 11,
+              background: "#157f3c",
+              color: "#fff",
+              borderRadius: 8,
+              padding: "9px 15px",
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: "none"
+            }}
+          >
+            Pedir a certidão online (ONR) →
+          </a>
           <p style={{ fontSize: 12.5, color: "#666", margin: "10px 0 0", lineHeight: 1.5 }}>
-            Peça a certidão de inteiro teor com esse número nesse cartório: é
-            ela que traz o <b>nome e o CPF do proprietário</b>, além de ônus e
-            penhoras. A matrícula vem do ITBI publicado pela prefeitura — não
-            precisa de busca paga.
+            Peça a <b>certidão de inteiro teor</b> com esse número nesse
+            cartório: é ela que traz o <b>nome e o CPF do proprietário</b>,
+            além de ônus e penhoras. A matrícula vem do ITBI publicado pela
+            prefeitura — não precisa pagar busca prévia.
             {imovel.numero_inferido && (
               <>
                 {" "}
