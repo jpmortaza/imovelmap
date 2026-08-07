@@ -39,7 +39,7 @@ export default async function ImoveisPage({
     .select(
       "id,title,price,price_formatted,transaction_type,neighborhood,city,state," +
         "bedrooms,bathrooms,area,parking_spaces,images,source,source_url," +
-        "endereco,endereco_numero,temperatura,telefones,tipo_anunciante,anunciante,first_seen_at",
+        "endereco,endereco_numero,numero_inferido,complemento,temperatura,telefones,tipo_anunciante,anunciante,first_seen_at,matricula,matricula_zona,matricula_candidatas,ultima_venda_data",
       { count: "exact" }
     )
     .eq("is_active", true);
@@ -54,6 +54,15 @@ export default async function ImoveisPage({
   if (searchParams.preco_min) query = query.gte("price", Number(searchParams.preco_min));
   if (searchParams.preco_max) query = query.lte("price", Number(searchParams.preco_max));
   if (searchParams.com_endereco === "1") query = query.not("endereco", "is", null);
+  // ⭐ a lista de prospecção de verdade: imóvel cuja matrícula já sabemos —
+  // o corretor tira a certidão e tem o nome do dono no mesmo dia
+  if (searchParams.com_matricula === "1") query = query.not("matricula", "is", null);
+  // inclui os prédios com matrículas candidatas: menos direto, ainda acionável
+  if (searchParams.com_matricula === "2")
+    query = query.or("matricula.not.is.null,matricula_candidatas.not.is.null");
+  // "nós somos a Auxiliadora": o que ela já tem não é oportunidade
+  if (searchParams.sem_auxiliadora === "1")
+    query = query.neq("source", "auxiliadorapredial.com.br");
   if (searchParams.fsbo === "1") query = query.eq("tipo_anunciante", "proprietario");
   // array vazio '{}' = sem telefone; qualquer coisa diferente disso tem número
   if (searchParams.com_telefone === "1") query = query.neq("telefones", "{}");
@@ -76,6 +85,10 @@ export default async function ImoveisPage({
       break;
     case "antigos":
       query = query.order("first_seen_at", { ascending: true });
+      break;
+    case "dono_antigo":
+      // quem comprou há mais tempo tende a estar mais perto de vender
+      query = query.order("ultima_venda_data", { ascending: true, nullsFirst: false });
       break;
     default:
       query = query.order("first_seen_at", { ascending: false });
@@ -171,8 +184,19 @@ export default async function ImoveisPage({
 
                   {/* ⭐ o endereço aparece já na listagem — é o diferencial */}
                   {i.endereco && (
-                    <div style={{ fontSize: 12.5, color: "#157f3c", fontWeight: 600, marginTop: 4 }}>
-                      📍 {i.endereco}{i.endereco_numero ? `, ${i.endereco_numero}` : ""}
+                    <div
+                      style={{
+                        fontSize: 12.5,
+                        color: i.numero_inferido ? "#8a6100" : "#157f3c",
+                        fontWeight: 600,
+                        marginTop: 4
+                      }}
+                    >
+                      📍 {i.endereco}
+                      {i.endereco_numero ? `, ${i.endereco_numero}` : ""}
+                      {/* número deduzido nunca sai parecendo publicado */}
+                      {i.numero_inferido ? " (nº deduzido)" : ""}
+                      {i.complemento ? ` · ${i.complemento}` : ""}
                     </div>
                   )}
 
@@ -199,6 +223,17 @@ export default async function ImoveisPage({
                         📞 {i.telefones.length}
                       </span>
                     )}
+                    {/* saber a matrícula é saber o caminho até o nome do dono */}
+                    {i.matricula ? (
+                      <span style={{ ...tag, background: "#dbeafe", color: "#1e40af" }}>
+                        📜 matrícula {i.matricula}
+                        {i.matricula_zona ? ` · ${i.matricula_zona}ª zona` : ""}
+                      </span>
+                    ) : Array.isArray(i.matricula_candidatas) && i.matricula_candidatas.length > 0 ? (
+                      <span style={{ ...tag, background: "#eef2ff", color: "#4338ca" }}>
+                        📜 {i.matricula_candidatas.length} matrículas candidatas
+                      </span>
+                    ) : null}
                     <span style={{ ...tag, background: "#f1f5f9", color: "#64748b" }}>
                       {i.anunciante ?? i.source}
                     </span>

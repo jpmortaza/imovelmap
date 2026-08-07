@@ -23,6 +23,8 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
   const [comTelefone, setComTelefone] = useState(sp.get("com_telefone") === "1");
   const [fsbo, setFsbo] = useState(sp.get("fsbo") === "1");
   const [comEndereco, setComEndereco] = useState(sp.get("com_endereco") === "1");
+  const [comMatricula, setComMatricula] = useState(sp.get("com_matricula") ?? "");
+  const [semAux, setSemAux] = useState(sp.get("sem_auxiliadora") === "1");
 
   function aplicar(e?: React.FormEvent) {
     e?.preventDefault();
@@ -39,6 +41,8 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
     if (comTelefone) p.set("com_telefone", "1");
     if (fsbo) p.set("fsbo", "1");
     if (comEndereco) p.set("com_endereco", "1");
+    if (comMatricula) p.set("com_matricula", comMatricula);
+    if (semAux) p.set("sem_auxiliadora", "1");
     // filtro novo sempre volta para a página 1
     startTransition(() => router.push(`/imoveis${p.toString() ? "?" + p : ""}`));
   }
@@ -47,6 +51,7 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
     setQ(""); setCidade(""); setTipo(""); setBairro("");
     setQuartosMin(""); setPrecoMin(""); setPrecoMax(""); setAreaMin("");
     setOrdem("recentes"); setComTelefone(false); setFsbo(false); setComEndereco(false);
+    setComMatricula(""); setSemAux(false);
     startTransition(() => router.push("/imoveis"));
   }
 
@@ -93,6 +98,18 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
           <option value="baratos">Menor preço</option>
           <option value="caros">Maior preço</option>
           <option value="antigos">Mais tempo no mercado</option>
+          <option value="dono_antigo">Dono há mais tempo</option>
+        </select>
+        {/* ⭐ o filtro que transforma a base em lista de trabalho: saber a
+            matrícula é saber por onde chegar ao nome do proprietário */}
+        <select
+          value={comMatricula}
+          onChange={(e) => setComMatricula(e.target.value)}
+          style={{ ...input, minWidth: 190 }}
+        >
+          <option value="">Matrícula: tanto faz</option>
+          <option value="1">📜 só com matrícula certa</option>
+          <option value="2">📜 matrícula certa ou candidata</option>
         </select>
       </div>
 
@@ -105,6 +122,10 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
         </Marcador>
         <Marcador ligado={comEndereco} set={setComEndereco} cor="#1e3a5f">
           📍 só com endereço
+        </Marcador>
+        {/* nós SOMOS a Auxiliadora: o que já é dela não é oportunidade */}
+        <Marcador ligado={semAux} set={setSemAux} cor="#0b6bcb">
+          🔵 esconder a Auxiliadora
         </Marcador>
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
