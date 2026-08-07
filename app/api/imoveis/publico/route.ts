@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 
-// API pública — sem auth. Devolve só os campos seguros pro mapa/listagem
-// pública. Endereço exato, CEP e número NÃO são expostos aqui.
+// Alimenta o mapa de prospecção. EXIGE LOGIN — o nome "publico" ficou do
+// tempo em que o mapa era aberto. Mesmo aqui o endereço exato, o CEP e o
+// número não saem: o mapa mostra posição e card, não o endereço.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
@@ -29,6 +31,18 @@ type Row = {
 };
 
 export async function GET(req: Request) {
+  // ⚠️ Esta rota usa a service_role, que passa por cima da RLS. O middleware
+  //    já barra visitante anônimo, mas a rota não confia nisso: ela alimenta
+  //    o mapa de prospecção (coordenada de 72 mil imóveis) e um dia alguém
+  //    mexe no matcher do middleware sem lembrar disso.
+  const sessao = createClient();
+  const {
+    data: { user }
+  } = await sessao.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "nao autenticado" }, { status: 401 });
+  }
+
   const svc = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -131,8 +145,9 @@ export async function GET(req: Request) {
     { total: items.length, items },
     {
       headers: {
-        "cache-control":
-          "public, max-age=30, s-maxage=60, stale-while-revalidate=300"
+        // `private`: a rota exige login, entao a resposta nao pode ficar
+        // num cache compartilhado e ser servida a quem nao entrou
+        "cache-control": "private, max-age=30"
       }
     }
   );

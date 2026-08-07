@@ -75,7 +75,7 @@ export default async function PainelLayout({
           <Link href="/painel/alertas" style={navLink}>
             Alertas
           </Link>
-          <Link href="/" style={navLink}>
+          <Link href="/mapa" style={navLink}>
             Mapa
           </Link>
 

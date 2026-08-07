@@ -133,7 +133,7 @@ export default async function ImoveisPage({
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <Link href="/" style={navLink}>Mapa</Link>
+          <Link href="/mapa" style={navLink}>Mapa</Link>
           <Link href="/extensao" style={navLink}>Extensão</Link>
           {isSuperAdmin && <Link href="/admin" style={navBtn}>Admin</Link>}
           {user ? <LogoutButton /> : <Link href="/login" style={navBtn}>Entrar</Link>}

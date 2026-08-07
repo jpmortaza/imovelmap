@@ -35,17 +35,27 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute =
     url.pathname.startsWith("/login") || url.pathname.startsWith("/auth");
 
-  // Rotas que existem PARA quem ainda nao tem conta: o mapa publico, a API
-  // que o alimenta e a pagina de download da extensao. Sem isto o visitante
-  // anonimo cai no login e nunca ve o produto.
+  // Publico: so a vitrine (`/`, que mostra numero agregado e nada mais) e a
+  // pagina da extensao.
+  //
+  // ⚠️ O MAPA NAO E PUBLICO, e a API que o alimenta tambem nao. Ele mostra
+  //    onde cada imovel esta e o que ja e nosso — e o mapa de oportunidades da
+  //    operacao. Aberto, entregaria a carteira e o resultado do enriquecimento
+  //    para qualquer concorrente. Vive em `/mapa`, atras do login.
   const isPublica =
     url.pathname === "/" ||
-    url.pathname.startsWith("/extensao") ||
-    url.pathname.startsWith("/api/imoveis/publico");
+    url.pathname.startsWith("/extensao");
 
   if (!user && !isAuthRoute && !isPublica) {
+    // API responde 401 em JSON: redirecionar um fetch para /login devolveria
+    // HTML e o cliente quebraria tentando ler como JSON.
+    if (url.pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "nao autenticado" }, { status: 401 });
+    }
     const redirect = url.clone();
     redirect.pathname = "/login";
+    // guarda para onde a pessoa queria ir, para voltar depois do login
+    redirect.searchParams.set("de", url.pathname + url.search);
     return NextResponse.redirect(redirect);
   }
 
