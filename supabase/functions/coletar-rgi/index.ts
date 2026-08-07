@@ -212,7 +212,12 @@ Deno.serve(async (req: Request) => {
   const todas = await urlsDoSitemap();
   if (!todas.length) return json({ ok: false, erro: "sitemap vazio ou fora do ar" }, 502);
 
-  const fatia = todas.slice(inicio, inicio + limite);
+  // O sitemap ENCOLHE conforme imoveis sao vendidos (19.942 -> 19.893 em um
+  // dia). Se o cursor do cron passar do fim, a fatia vem vazia e o lote
+  // vira um "erro" que nao e erro. Dobrar aqui deixa o cursor se autocorrigir
+  // sem depender do total que o pg_cron acha que existe.
+  const inicioReal = todas.length ? inicio % todas.length : 0;
+  const fatia = todas.slice(inicioReal, inicioReal + limite);
   const itens: Record<string, unknown>[] = [];
   let semDados = 0;
 
@@ -244,7 +249,7 @@ Deno.serve(async (req: Request) => {
   await svc.from("extracoes").insert({
     corretor_id: corretorId,
     origem: "cron",
-    status: itens.length ? "ok" : "error",
+    status: itens.length || fatia.length === 0 ? "ok" : "error",
     started_at: new Date(t0).toISOString(),
     finished_at: new Date().toISOString(),
     duracao_ms: duracao,
@@ -252,13 +257,13 @@ Deno.serve(async (req: Request) => {
     total_novos: Number(resumo.novos ?? 0),
     total_atualizados: Number(resumo.atualizados ?? 0),
     total_erros: semDados,
-    meta: { portal: "redegauchadeimoveis.com.br", inicio, limite, totalNoSitemap: todas.length },
+    meta: { portal: "redegauchadeimoveis.com.br", inicio, inicioReal, limite, totalNoSitemap: todas.length },
   });
 
   return json({
     ok: true,
     totalNoSitemap: todas.length,
-    fatia: { inicio, limite, visitados: fatia.length },
+    fatia: { inicio, inicioReal, limite, visitados: fatia.length },
     extraidos: itens.length,
     semDados,
     ...resumo,
