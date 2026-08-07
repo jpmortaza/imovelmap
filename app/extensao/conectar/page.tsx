@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+
 // ID da extensao publicada. Definir em NEXT_PUBLIC_EXTENSAO_ID.
 // Enquanto roda em modo desenvolvedor o ID muda a cada carga, entao
 // a extensao tambem escuta o evento de janela como fallback.

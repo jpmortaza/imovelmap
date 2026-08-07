@@ -8,7 +8,9 @@ type Mode = "signin" | "signup";
 
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = createClient();
+  // O client so nasce quando o usuario envia o formulario. Criar no corpo do
+  // componente faz o prerender do build exigir as env vars — e o build quebra
+  // se elas nao estiverem disponiveis naquele instante.
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,6 +22,8 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
+    const supabase = createClient();
 
     if (mode === "signin") {
       const { error } = await supabase.auth.signInWithPassword({

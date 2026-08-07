@@ -20,6 +20,51 @@ const defaultIcon = L.icon({
   shadowSize: [41, 41]
 });
 
+
+// Uma cor por portal: bater o olho no mapa e saber de quem é a carteira
+// vale mais que um mar de pins iguais. SVG inline — nada de CDN.
+// ⭐ A leitura do mapa é uma só: VERMELHO já é nosso, AZUL é oportunidade.
+// Somos a Auxiliadora Predial — o que está em azul é imóvel que outra
+// imobiliária detém e que ainda dá para agenciar.
+const COR_NOSSA = "#dc2626";   // vermelho — Auxiliadora Predial
+const COR_OUTROS = "#2563eb";  // azul — todo o resto
+
+const FONTE_NOSSA = "auxiliadorapredial.com.br";
+
+export const NOMES_FONTE: Record<string, string> = {
+  "redegauchadeimoveis.com.br": "Rede Gaúcha",
+  "auxiliadorapredial.com.br": "Auxiliadora Predial (nossa)",
+  zapimoveis: "ZAP",
+  vivareal: "VivaReal",
+  olx: "OLX",
+  imovelweb: "ImovelWeb"
+};
+
+const corDaFonte = (f: string) => (f === FONTE_NOSSA ? COR_NOSSA : COR_OUTROS);
+
+const cacheIcones = new Map<string, L.Icon>();
+
+function iconeDaFonte(fonte: string) {
+  const cor = corDaFonte(fonte);
+  const existente = cacheIcones.get(cor);
+  if (existente) return existente;
+
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41">` +
+    `<path d="M12.5 0C5.6 0 0 5.6 0 12.5 0 21.9 12.5 41 12.5 41S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0z" ` +
+    `fill="${cor}" stroke="rgba(0,0,0,.25)" stroke-width="1"/>` +
+    `<circle cx="12.5" cy="12.5" r="4.6" fill="#fff"/></svg>`;
+
+  const icone = L.icon({
+    iconUrl: "data:image/svg+xml;base64," + btoa(svg),
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34]
+  });
+  cacheIcones.set(cor, icone);
+  return icone;
+}
+
 export type ImovelPublico = {
   id: string;
   title: string;
@@ -140,7 +185,7 @@ export default function MapaImoveis() {
           <Marker
             key={i.id}
             position={[i.lat!, i.lng!]}
-            icon={defaultIcon}
+            icon={iconeDaFonte(i.source)}
             eventHandlers={{ click: () => setAberto(i) }}
           >
             <Popup maxWidth={280}>
@@ -196,6 +241,8 @@ export default function MapaImoveis() {
           </Marker>
         ))}
       </MapContainer>
+
+      <Legenda fontes={[...new Set(pinned.map((i) => i.source))]} />
 
       {aberto && <PainelLateral imovel={aberto} aoFechar={() => setAberto(null)} />}
     </div>
@@ -442,6 +489,43 @@ function Info({ r, v }: { r: string; v: React.ReactNode }) {
         {r}
       </div>
       <div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div>
+    </div>
+  );
+}
+
+/** Legenda: vermelho é nosso, azul é oportunidade. */
+function Legenda({ fontes }: { fontes: string[] }) {
+  if (fontes.length === 0) return null;
+  const temNossa = fontes.includes(FONTE_NOSSA);
+  const outras = fontes.filter((f) => f !== FONTE_NOSSA);
+
+  return (
+    <div
+      style={{
+        position: "absolute", left: 12, bottom: 22, zIndex: 900,
+        background: "rgba(255,255,255,.96)", borderRadius: 10,
+        padding: "10px 13px", boxShadow: "0 2px 12px rgba(0,0,0,.15)",
+        fontSize: 12, display: "flex", flexDirection: "column", gap: 6,
+        maxWidth: 230
+      }}
+    >
+      {temNossa && (
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <span style={{ width: 11, height: 11, borderRadius: 999, background: COR_NOSSA, flex: "none" }} />
+          <span style={{ color: "#333", fontWeight: 700 }}>Auxiliadora Predial</span>
+        </div>
+      )}
+      {outras.length > 0 && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+            <span style={{ width: 11, height: 11, borderRadius: 999, background: COR_OUTROS, flex: "none" }} />
+            <span style={{ color: "#333", fontWeight: 700 }}>Oportunidades</span>
+          </div>
+          <div style={{ fontSize: 10.5, color: "#777", paddingLeft: 18, lineHeight: 1.4 }}>
+            {outras.map((f) => NOMES_FONTE[f] ?? f).join(" · ")}
+          </div>
+        </>
+      )}
     </div>
   );
 }

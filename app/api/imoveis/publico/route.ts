@@ -44,7 +44,7 @@ export async function GET(req: Request) {
   const precoMax = url.searchParams.get("preco_max");
   const q = url.searchParams.get("q");
   const onlyGeo = url.searchParams.get("geo") === "1";
-  const limit = Math.min(Number(url.searchParams.get("limit") ?? 1000), 2000);
+  const limit = Math.min(Number(url.searchParams.get("limit") ?? 3000), 6000);
 
   let query = svc
     .from("imoveis")
