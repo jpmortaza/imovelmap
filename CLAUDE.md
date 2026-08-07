@@ -131,8 +131,17 @@ Duas coisas que valem mais que o número:
 | Tabela | Linhas | De onde | Serve para |
 |---|---|---|---|
 | `publico.itbi` | 354.728 | CKAN de POA, 7 recursos (2020-2026) | **matrícula + cartório**, nº da porta, unidade, última venda |
+| `publico.cnpj_estabelecimentos` | 856.167 | dump da Receita, filtrado em fluxo | **nome e telefone de quem está na unidade** |
 | `publico.osm_enderecos` | 128.360 | extrato Geofabrik `sul-latest.osm.pbf` | candidatos de nº de porta no RS |
-| `publico.condominios` | 10.245 | sitemap de condomínios do Lopes | nome do prédio (6.858 anúncios nomeados), chave de CNPJ |
+| `publico.condominios` | 10.245 | sitemap de condomínios do Lopes | nome do prédio (8.557 anúncios nomeados) |
+
+**O CNPJ é o segundo achado da noite.** Milhões de brasileiros abrem empresa no
+endereço onde moram, e o cadastro da Receita traz logradouro, número,
+**complemento** ("APT 612") e **telefone** — e para MEI a razão social é o nome
+da pessoa. 770 anúncios saíram com nome e celular da unidade exata, todos com
+matrícula junto. Ver `0032`/`0033` para os três filtros que separam morador de
+endereço virtual de contabilidade. **Isso não prova propriedade** — quem
+confirma é a matrícula, e a UI diz isso.
 
 Nenhuma delas precisou de `psql` nem de download de CSV gigante — era isso que
 travava a Fase 7. O CKAN de POA tem **datastore ativo**: dá para consultar por
@@ -277,12 +286,13 @@ alvarás. **Regra geral: antes de baixar arquivo grande, teste `datastore_search
 
 **Próximos passos, em ordem de valor:**
 
-1. **CNPJ do condomínio → síndico.** Já temos 10.245 nomes de condomínio com endereço.
-   Falta uma busca CNPJ *por nome/endereço* que seja gratuita e legal — a BrasilAPI só
-   faz CNPJ→dados, não o inverso. O caminho oficial é o dump de Estabelecimentos da
-   Receita (bulk, alguns GB); a URL mudou para um portal SERPRO+ e não foi localizada
-   em 07/08. **Vale a pena: empresa registrada em endereço residencial quase sempre é
-   o morador.**
+1. ✅ **CNPJ por endereço — feito.** O dump está em
+   `dados-abertos-rf-cnpj.casadosdados.com.br/arquivos/AAAA-MM-DD/` (espelho com CDN;
+   o site da Receita migrou para um portal SERPRO+ e as URLs antigas dão 404).
+   Município de POA no cadastro da Receita = **8801**. Atualiza mensal — recarregar
+   com `cnpj-poa.py` + `cnpj-nomes.py`. **O que ainda falta:** o arquivo `Socios`,
+   que dá os sócios das LTDA (hoje só o nome de MEI/empresário individual sai
+   direto).
 2. **Mais fontes do RS.** Sondados e viáveis, ainda não coletados:
    `lopes.com.br` (~4.500 imóveis no RS, robots libera) e `hoffmannimoveis.com.br`
    (502, mesmo formato RSC da Rede Gaúcha).
