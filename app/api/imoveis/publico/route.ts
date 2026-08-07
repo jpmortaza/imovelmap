@@ -45,6 +45,11 @@ export async function GET(req: Request) {
   const q = url.searchParams.get("q");
   const onlyGeo = url.searchParams.get("geo") === "1";
   const fonte = url.searchParams.get("fonte");
+  // excluir uma fonte e o filtro que o corretor mais usa: "me mostre so o
+  // que NAO e nosso", ou seja, so oportunidade de agenciamento
+  const excluir = url.searchParams.get("excluir");
+  const areaMin = url.searchParams.get("area_min");
+  const semExclusiva = url.searchParams.get("sem_exclusiva") === "1";
   // bbox=oesteLng,sulLat,lesteLng,norteLat — o mapa manda a area visivel.
   // Sem isso, "os N mais recentes" fazia UMA fonte ocupar o mapa inteiro:
   // a Auxiliadora (carregada antes) sumia atras da Rede Gaucha.
@@ -78,6 +83,9 @@ export async function GET(req: Request) {
       .gte("latitude", sul).lte("latitude", norte);
   }
   if (fonte) query = query.eq("source", fonte);
+  if (excluir) query = query.neq("source", excluir);
+  if (areaMin) query = query.gte("area", Number(areaMin));
+  if (semExclusiva) query = query.gt("temperatura", 0);
   if (transactionType) query = query.eq("transaction_type", transactionType);
   if (cidade) query = query.ilike("city", `%${cidade}%`);
   if (bairro) query = query.ilike("neighborhood", `%${bairro}%`);

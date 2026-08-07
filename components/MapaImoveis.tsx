@@ -90,7 +90,11 @@ type Filtros = {
   tipo: "" | "sale" | "rent";
   q: string;
   quartosMin: string;
+  precoMin: string;
   precoMax: string;
+  areaMin: string;
+  /** "" todas · "so" apenas Auxiliadora · "excluir" so o que NAO e nosso */
+  carteira: "" | "so" | "excluir";
 };
 
 const POA: [number, number] = [-30.0346, -51.2177];
@@ -129,7 +133,10 @@ export default function MapaImoveis() {
     tipo: "",
     q: "",
     quartosMin: "",
-    precoMax: ""
+    precoMin: "",
+    precoMax: "",
+    areaMin: "",
+    carteira: ""
   });
 
   useEffect(() => {
@@ -138,7 +145,11 @@ export default function MapaImoveis() {
     if (filtros.tipo) qs.set("tipo", filtros.tipo);
     if (filtros.q.trim()) qs.set("q", filtros.q.trim());
     if (filtros.quartosMin) qs.set("quartos_min", filtros.quartosMin);
+    if (filtros.precoMin) qs.set("preco_min", filtros.precoMin);
     if (filtros.precoMax) qs.set("preco_max", filtros.precoMax);
+    if (filtros.areaMin) qs.set("area_min", filtros.areaMin);
+    if (filtros.carteira === "so") qs.set("fonte", FONTE_NOSSA);
+    if (filtros.carteira === "excluir") qs.set("excluir", FONTE_NOSSA);
     if (bbox) qs.set("bbox", bbox);
 
     setLoading(true);
@@ -293,11 +304,38 @@ function FiltrosBar({
         alignItems: "center"
       }}
     >
+      {/* ⭐ o filtro que o corretor mais usa: "me mostre so o que NAO e nosso" */}
+      <div style={{ display: "flex", gap: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #ddd" }}>
+        {([
+          ["", "Todos"],
+          ["so", "Só nossos"],
+          ["excluir", "Só oportunidades"]
+        ] as const).map(([v, rotulo]) => {
+          const ativo = filtros.carteira === v;
+          const cor = v === "so" ? COR_NOSSA : v === "excluir" ? COR_OUTROS : "#111";
+          return (
+            <button
+              key={v || "todos"}
+              onClick={() => onChange({ ...filtros, carteira: v })}
+              style={{
+                border: 0,
+                padding: "8px 12px",
+                fontSize: 12.5,
+                cursor: "pointer",
+                fontWeight: ativo ? 700 : 400,
+                background: ativo ? cor : "#fff",
+                color: ativo ? "#fff" : "#555"
+              }}
+            >
+              {rotulo}
+            </button>
+          );
+        })}
+      </div>
+
       <select
         value={filtros.tipo}
-        onChange={(e) =>
-          onChange({ ...filtros, tipo: e.target.value as Filtros["tipo"] })
-        }
+        onChange={(e) => onChange({ ...filtros, tipo: e.target.value as Filtros["tipo"] })}
         style={selectStyle}
       >
         <option value="">Venda e aluguel</option>
@@ -307,10 +345,10 @@ function FiltrosBar({
 
       <input
         type="text"
-        placeholder="Bairro, cidade ou título..."
+        placeholder="Bairro, cidade, rua ou título..."
         value={filtros.q}
         onChange={(e) => onChange({ ...filtros, q: e.target.value })}
-        style={{ ...inputStyle, minWidth: 180, flex: 1 }}
+        style={{ ...inputStyle, minWidth: 170, flex: 1 }}
       />
 
       <select
@@ -326,17 +364,56 @@ function FiltrosBar({
       </select>
 
       <select
+        value={filtros.areaMin}
+        onChange={(e) => onChange({ ...filtros, areaMin: e.target.value })}
+        style={selectStyle}
+      >
+        <option value="">Área mín</option>
+        <option value="40">40 m²</option>
+        <option value="70">70 m²</option>
+        <option value="100">100 m²</option>
+        <option value="150">150 m²</option>
+        <option value="250">250 m²</option>
+      </select>
+
+      <select
+        value={filtros.precoMin}
+        onChange={(e) => onChange({ ...filtros, precoMin: e.target.value })}
+        style={selectStyle}
+      >
+        <option value="">A partir de</option>
+        <option value="200000">R$ 200 mil</option>
+        <option value="400000">R$ 400 mil</option>
+        <option value="700000">R$ 700 mil</option>
+        <option value="1000000">R$ 1 mi</option>
+        <option value="2000000">R$ 2 mi</option>
+      </select>
+
+      <select
         value={filtros.precoMax}
         onChange={(e) => onChange({ ...filtros, precoMax: e.target.value })}
         style={selectStyle}
       >
-        <option value="">Até R$ (máx)</option>
+        <option value="">Até</option>
         <option value="200000">R$ 200 mil</option>
         <option value="400000">R$ 400 mil</option>
-        <option value="600000">R$ 600 mil</option>
+        <option value="700000">R$ 700 mil</option>
         <option value="1000000">R$ 1 mi</option>
         <option value="2000000">R$ 2 mi</option>
+        <option value="5000000">R$ 5 mi</option>
       </select>
+
+      <button
+        onClick={() =>
+          onChange({ tipo: "", q: "", quartosMin: "", precoMin: "", precoMax: "", areaMin: "", carteira: "" })
+        }
+        style={{
+          border: "1px solid #ddd", background: "#fff", color: "#666",
+          borderRadius: 8, padding: "8px 12px", fontSize: 12.5, cursor: "pointer"
+        }}
+      >
+        limpar
+      </button>
 
       <div style={{ fontSize: 12, color: "#666", marginLeft: "auto" }}>
         {erro
