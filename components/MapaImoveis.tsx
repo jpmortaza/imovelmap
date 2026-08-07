@@ -34,6 +34,7 @@ const FONTE_NOSSA = "auxiliadorapredial.com.br";
 export const NOMES_FONTE: Record<string, string> = {
   "redegauchadeimoveis.com.br": "Rede Gaúcha",
   "auxiliadorapredial.com.br": "Auxiliadora Predial (nossa)",
+  "guarida.com.br": "Guarida",
   zapimoveis: "ZAP",
   vivareal: "VivaReal",
   olx: "OLX",
