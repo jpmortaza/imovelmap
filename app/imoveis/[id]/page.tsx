@@ -78,10 +78,40 @@ export default async function ImovelPage({ params }: { params: { id: string } })
           <h2 style={h2}>📍 Endereço</h2>
           {enderecoCompleto ? (
             <>
-              <div style={{ fontSize: 19, fontWeight: 700, color: "#157f3c" }}>
+              <div
+                style={{
+                  fontSize: 19,
+                  fontWeight: 700,
+                  color: imovel.numero_inferido ? "#8a6100" : "#157f3c"
+                }}
+              >
                 {enderecoCompleto}
                 {imovel.complemento ? ` · ${imovel.complemento}` : ""}
               </div>
+              {/* Número que NÓS inferimos não pode parecer número publicado.
+                  Medido em teste cego contra 544 endereços conhecidos: a
+                  inferência por CEP + área privativa acerta ~4 de 5. É um bom
+                  ponto de partida, não um fato — e o corretor precisa saber
+                  disso antes de bater na porta ou pagar uma certidão. */}
+              {imovel.numero_inferido && (
+                <div
+                  style={{
+                    background: "#fff6e0",
+                    border: "1px solid #f0d9a0",
+                    borderRadius: 8,
+                    padding: "8px 11px",
+                    fontSize: 12.5,
+                    color: "#7a5600",
+                    marginTop: 8,
+                    lineHeight: 1.5
+                  }}
+                >
+                  <b>O número da porta foi deduzido, não publicado.</b> O
+                  anúncio traz só a rua e o CEP; cruzamos com o ITBI da
+                  prefeitura pela área privativa. Acerta cerca de 4 em 5 —
+                  confirme antes de pagar certidão.
+                </div>
+              )}
               <div style={{ color: "#666", fontSize: 13, marginTop: 4 }}>
                 {[imovel.cep, imovel.neighborhood, imovel.city, imovel.state]
                   .filter(Boolean)
@@ -332,6 +362,15 @@ function Matricula({ imovel }: { imovel: Record<string, any> }) {
             ela que traz o <b>nome e o CPF do proprietário</b>, além de ônus e
             penhoras. A matrícula vem do ITBI publicado pela prefeitura — não
             precisa de busca paga.
+            {imovel.numero_inferido && (
+              <>
+                {" "}
+                <b style={{ color: "#8a6100" }}>
+                  Atenção: como o número da porta foi deduzido, esta matrícula
+                  herda a mesma dúvida.
+                </b>
+              </>
+            )}
           </p>
         </>
       ) : (
