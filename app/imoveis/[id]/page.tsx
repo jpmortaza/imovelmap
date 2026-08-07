@@ -99,6 +99,11 @@ export default async function ImovelPage({ params }: { params: { id: string } })
               Endereço ainda não resolvido — o anúncio não publica.
             </div>
           )}
+          {imovel.unidade && (
+            <div style={{ fontSize: 13, marginTop: 6 }}>
+              unidade: <b>{imovel.unidade}</b>
+            </div>
+          )}
           {imovel.inscricao_imobiliaria && (
             <div style={{ fontSize: 13, marginTop: 8 }}>
               inscrição imobiliária: <b>{imovel.inscricao_imobiliaria}</b>
@@ -115,6 +120,11 @@ export default async function ImovelPage({ params }: { params: { id: string } })
             </a>
           )}
         </section>
+
+        {/* ⭐ A matrícula é o fim da linha da prospecção: com ela o corretor
+            tira a certidão no cartório e lê o nome do proprietário. Vem do
+            ITBI de Porto Alegre, dados abertos. */}
+        <Matricula imovel={imovel} />
 
         <section style={cartao}>
           <h2 style={h2}>💰 Valores</h2>
@@ -268,6 +278,131 @@ export default async function ImovelPage({ params }: { params: { id: string } })
         )}
       </main>
     </div>
+  );
+}
+
+/**
+ * Cartórios de registro de imóveis de Porto Alegre, por zona.
+ *
+ * O ITBI devolve `n_zona_reg_imoveis` — é o número da zona, e é ela que diz
+ * em QUAL cartório a matrícula está. Sem isso o corretor teria que ligar para
+ * seis cartórios até achar o dele.
+ */
+const CARTORIOS: Record<string, string> = {
+  "1": "Registro de Imóveis da 1ª Zona",
+  "2": "Registro de Imóveis da 2ª Zona",
+  "3": "Registro de Imóveis da 3ª Zona",
+  "4": "Registro de Imóveis da 4ª Zona",
+  "5": "Registro de Imóveis da 5ª Zona",
+  "6": "Registro de Imóveis da 6ª Zona"
+};
+
+/** "há 8 anos" — o sinal de prospecção que o valor sozinho não dá. */
+function tempoDesde(data: string | null): string | null {
+  if (!data) return null;
+  const meses = Math.round(
+    (Date.now() - new Date(data).getTime()) / (1000 * 60 * 60 * 24 * 30.44)
+  );
+  if (meses < 1) return "este mês";
+  if (meses < 24) return `há ${meses} ${meses === 1 ? "mês" : "meses"}`;
+  return `há ${Math.floor(meses / 12)} anos`;
+}
+
+function Matricula({ imovel }: { imovel: Record<string, any> }) {
+  const cands = Array.isArray(imovel.matricula_candidatas) ? imovel.matricula_candidatas : null;
+  if (!imovel.matricula && !cands?.length) return null;
+
+  const zona = imovel.matricula_zona ? CARTORIOS[String(imovel.matricula_zona)] : null;
+  const desde = tempoDesde(imovel.ultima_venda_data);
+
+  return (
+    <section style={{ ...cartao, borderLeft: "4px solid #157f3c" }}>
+      <h2 style={h2}>📜 Matrícula no registro de imóveis</h2>
+
+      {imovel.matricula ? (
+        <>
+          <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: -0.5 }}>
+            nº {imovel.matricula}
+          </div>
+          <div style={{ color: "#157f3c", fontWeight: 600, fontSize: 14, marginTop: 2 }}>
+            {zona ?? `zona ${imovel.matricula_zona ?? "?"}`}
+          </div>
+          <p style={{ fontSize: 12.5, color: "#666", margin: "10px 0 0", lineHeight: 1.5 }}>
+            Peça a certidão de inteiro teor com esse número nesse cartório: é
+            ela que traz o <b>nome e o CPF do proprietário</b>, além de ônus e
+            penhoras. A matrícula vem do ITBI publicado pela prefeitura — não
+            precisa de busca paga.
+          </p>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>
+            {cands!.length} unidades deste prédio têm a área do anúncio
+          </div>
+          <p style={{ fontSize: 12.5, color: "#666", margin: "6px 0 10px", lineHeight: 1.5 }}>
+            Numa torre com apartamentos iguais a área não distingue qual é. O{" "}
+            <b>número do prédio está certo</b>; a matrícula é uma destas. Uma
+            ligação ao anunciante perguntando o andar resolve.
+          </p>
+          <div style={{ display: "grid", gap: 6 }}>
+            {cands!.slice(0, 12).map((c: any, i: number) => (
+              <div
+                key={i}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  fontSize: 13,
+                  background: "#f6f7f9",
+                  borderRadius: 7,
+                  padding: "7px 10px"
+                }}
+              >
+                <span>
+                  unid. <b>{c.unidade ?? "—"}</b> · matrícula <b>{c.matricula}</b>
+                  {c.zona ? ` · zona ${c.zona}` : ""}
+                </span>
+                <span style={{ color: "#666" }}>
+                  {c.area ? `${c.area} m²` : ""}
+                  {c.ultimaVenda
+                    ? ` · ${Number(c.ultimaVenda).toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                        maximumFractionDigits: 0
+                      })}`
+                    : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {(imovel.ultima_venda_valor || imovel.ano_construcao) && (
+        <div style={{ ...grade, marginTop: 14 }}>
+          {imovel.ultima_venda_valor && (
+            <Dado
+              rotulo="Última venda"
+              valor={
+                <>
+                  {Number(imovel.ultima_venda_valor).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                    maximumFractionDigits: 0
+                  })}
+                  {desde && (
+                    <span style={{ fontWeight: 400, color: "#666", fontSize: 12 }}> · {desde}</span>
+                  )}
+                </>
+              }
+            />
+          )}
+          {imovel.ano_construcao && (
+            <Dado rotulo="Construção" valor={imovel.ano_construcao} />
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
