@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 type Campo =
   | "ignorar" | "nome" | "ddd" | "telefone" | "email" | "documento"
   | "nascimento" | "logradouro" | "numero" | "complemento" | "bairro"
-  | "cep" | "cidade" | "observacao";
+  | "cep" | "cidade" | "estado" | "observacao";
 
 const CAMPOS: { v: Campo; r: string }[] = [
   { v: "ignorar", r: "— ignorar —" },
@@ -33,6 +33,7 @@ const CAMPOS: { v: Campo; r: string }[] = [
   { v: "bairro", r: "Bairro" },
   { v: "cep", r: "CEP" },
   { v: "cidade", r: "Cidade" },
+  { v: "estado", r: "Estado / UF" },
   { v: "observacao", r: "Observação" }
 ];
 
@@ -131,7 +132,8 @@ export default function ImportarPage() {
         if (/compl/.test(n)) return "complemento";
         if (/bairro/.test(n)) return "bairro";
         if (/cep/.test(n)) return "cep";
-        if (/cidade|municipio|município/.test(n)) return "cidade";
+        if (/cidade|municipio|município|localidade/.test(n)) return "cidade";
+        if (/^(uf|estado)$/.test(n) || /\buf\b|estado/.test(n)) return "estado";
         return "ignorar";
       })
     );
