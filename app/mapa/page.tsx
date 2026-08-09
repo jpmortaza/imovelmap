@@ -40,6 +40,21 @@ export default async function Mapa() {
   // o middleware já barra, mas a página não depende disso para se proteger
   if (!user) redirect("/login?de=/mapa");
 
+  // ⭐ O MAPA É O TERRITÓRIO DO CORRETOR, não a cidade inteira. Ele trabalha o
+  //    bairro dele; mostrar Porto Alegre toda é ruído — e faz o mapa carregar
+  //    milhares de pinos que não são trabalho dele.
+  //
+  //    Sem território definido não dá para filtrar nada, então cai na cidade
+  //    inteira: melhor que um mapa vazio sem explicação.
+  const { data: eu } = await supabase
+    .from("corretores")
+    .select("cidade, bairros")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const bairros: string[] = eu?.bairros ?? [];
+  const cidade: string | null = eu?.cidade ?? null;
+
   return (
     <div style={{ minHeight: "100vh", background: "#f7f7f8" }}>
       <header style={header}>
@@ -47,7 +62,7 @@ export default async function Mapa() {
           ImovelMap
         </Link>
         <span style={{ color: "#aaa", fontSize: 13 }}>
-          Mapa de prospecção
+          {bairros.length ? bairros.join(" · ") : "Mapa de prospecção"}
         </span>
         {/* mesma leitura do painel do bairro, para quem chega direto aqui */}
         <span
@@ -74,7 +89,19 @@ export default async function Mapa() {
         </nav>
       </header>
 
-      <MapaImoveis />
+      {bairros.length === 0 && (
+        <div style={avisoSemTerritorio}>
+          Você não tem bairro atribuído, então o mapa está mostrando a cidade
+          inteira. Peça a um administrador para definir o seu território em{" "}
+          <b>Administração → Corretores</b> — o mapa passa a mostrar só o que é
+          seu.
+        </div>
+      )}
+
+      <MapaImoveis
+        territorio={bairros.length ? bairros : undefined}
+        cidade={cidade ?? undefined}
+      />
 
       <style>{`
         @media (max-width: 780px) { .im-legenda-topo { display: none } }
@@ -82,6 +109,15 @@ export default async function Mapa() {
     </div>
   );
 }
+
+const avisoSemTerritorio: React.CSSProperties = {
+  background: "#fff8ed",
+  borderBottom: "1px solid #f0d9a0",
+  color: "#7a5600",
+  padding: "10px 20px",
+  fontSize: 13,
+  lineHeight: 1.5
+};
 
 const header: React.CSSProperties = {
   height: 64,
