@@ -40,6 +40,11 @@ export default async function ImovelPage({ params }: { params: { id: string } })
     p_imovel_id: params.id
   });
 
+  // o MESMO imóvel em outros portais — argumento direto de exclusividade
+  const { data: outrosPortais } = await supabase.rpc("imovel_em_outros_portais", {
+    p_imovel_id: params.id
+  });
+
   const brl = (v: number | null) =>
     v == null
       ? "—"
@@ -235,6 +240,7 @@ export default async function ImovelPage({ params }: { params: { id: string } })
         <ContatosPredio imovel={imovel} />
         <ContatosEntorno imovel={imovel} />
         <ContatosImportados imovel={imovel} />
+        <OutrosPortais lista={outrosPortais ?? []} imovel={imovel} />
         <NoPredio lista={noPredio ?? []} imovel={imovel} />
 
         <section style={cartao}>
@@ -834,6 +840,70 @@ function ContatosEntorno({ imovel }: { imovel: Record<string, any> }) {
                 {fone(x.fone)}
               </a>
             )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * O MESMO imóvel anunciado em outros portais.
+ *
+ * ⭐ Quando os preços divergem, é o argumento mais direto que existe: o dono
+ *    não tem exclusividade e as imobiliárias nem se falam. Medido na base:
+ *    51% dos grupos têm preço diferente, com 17,9% de diferença média.
+ *
+ * ⚠️ Mas atenção ao uso: só 99 dos 13.133 sem exclusiva são oportunidade — se
+ *    o imóvel está em vários portais e um deles é a Auxiliadora, ele já é
+ *    nosso. Na prática este bloco serve mais para ver onde ESTAMOS competindo
+ *    conosco mesmos do que para prospectar.
+ */
+function OutrosPortais({ lista, imovel }: { lista: any[]; imovel: Record<string, any> }) {
+  if (!lista?.length) return null;
+  const brl = (v: number | null) =>
+    v == null ? "—" : Number(v).toLocaleString("pt-BR",
+      { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+
+  const precos = [imovel.price, ...lista.map((x) => x.preco)]
+    .map(Number).filter((n) => n > 0);
+  const menor = Math.min(...precos);
+  const maior = Math.max(...precos);
+  const diverge = precos.length > 1 && maior > menor;
+  const dif = diverge ? Math.round(((maior - menor) / maior) * 100) : 0;
+
+  return (
+    <section style={{ ...cartao, borderLeft: `4px solid ${diverge ? "#b45309" : "#94a3b8"}` }}>
+      <h2 style={h2}>🔁 O mesmo imóvel em outros portais ({lista.length})</h2>
+
+      {diverge && (
+        <div style={{
+          background: "#fff8ed", border: "1px solid #f0d9a0", color: "#7a5600",
+          borderRadius: 9, padding: "11px 13px", fontSize: 13, lineHeight: 1.55,
+          marginBottom: 12
+        }}>
+          <b>Sem exclusividade, e os preços não batem — {dif}% de diferença.</b>{" "}
+          Vai de {brl(menor)} a {brl(maior)} para o mesmo imóvel. O dono está com
+          várias imobiliárias que não se falam.
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: 6 }}>
+        {lista.map((x) => (
+          <div key={x.id} style={linhaContato}>
+            <span>
+              <Link href={`/imoveis/${x.id}`} style={{ color: "#0366d6", fontWeight: 600 }}>
+                {x.anunciante ?? x.fonte}
+              </Link>
+              <span style={{ color: "#888", fontSize: 11.5, marginLeft: 6 }}>{x.fonte}</span>
+            </span>
+            <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <b>{brl(x.preco)}</b>
+              {x.url && (
+                <a href={x.url} target="_blank" rel="noreferrer"
+                   style={{ color: "#0366d6", fontSize: 11.5 }}>ver ↗</a>
+              )}
+            </span>
           </div>
         ))}
       </div>

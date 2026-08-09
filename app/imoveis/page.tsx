@@ -50,8 +50,7 @@ export default async function ImoveisPage({
   if (searchParams.com_matricula === "2")
     query = query.or("matricula.not.is.null,matricula_candidatas.not.is.null");
   // "nós somos a Auxiliadora": o que ela já tem não é oportunidade
-  if (searchParams.sem_auxiliadora === "1")
-    query = query.neq("source", "auxiliadorapredial.com.br");
+  if (searchParams.sem_auxiliadora === "1") query = query.eq("ja_e_nosso", false);
   // ⭐ nome e telefone de quem está na unidade, do cadastro de CNPJ
   if (searchParams.com_contato === "1")
     query = query.not("contatos_cnpj", "is", null);
@@ -63,6 +62,10 @@ export default async function ImoveisPage({
     query = query.not("contatos_importados", "is", null);
   // pede muito acima do que o prédio vende: costuma encalhar
   if (searchParams.caro === "1") query = query.gte("sobrepreco", 0.6);
+  // mesmo imóvel em vários portais com preços diferentes
+  if (searchParams.sem_exclusiva === "1") query = query.eq("sem_exclusiva", true);
+  // "esconder a Auxiliadora" passou a usar `ja_e_nosso`, que cruza endereço
+  // entre portais — antes só olhava a fonte e deixava passar duplicata nossa
   if (searchParams.fsbo === "1") query = query.eq("tipo_anunciante", "proprietario");
   // array vazio '{}' = sem telefone; qualquer coisa diferente disso tem número
   if (searchParams.com_telefone === "1") query = query.neq("telefones", "{}");

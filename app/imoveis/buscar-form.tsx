@@ -27,6 +27,7 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
   const [semAux, setSemAux] = useState(sp.get("sem_auxiliadora") === "1");
   const [comContato, setComContato] = useState(sp.get("com_contato") ?? "");
   const [caro, setCaro] = useState(sp.get("caro") === "1");
+  const [semExcl, setSemExcl] = useState(sp.get("sem_exclusiva") === "1");
 
   function aplicar(e?: React.FormEvent) {
     e?.preventDefault();
@@ -47,6 +48,7 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
     if (semAux) p.set("sem_auxiliadora", "1");
     if (comContato) p.set("com_contato", comContato);
     if (caro) p.set("caro", "1");
+    if (semExcl) p.set("sem_exclusiva", "1");
     // filtro novo sempre volta para a página 1
     startTransition(() => router.push(`/imoveis${p.toString() ? "?" + p : ""}`));
   }
@@ -55,7 +57,7 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
     setQ(""); setCidade(""); setTipo(""); setBairro("");
     setQuartosMin(""); setPrecoMin(""); setPrecoMax(""); setAreaMin("");
     setOrdem("recentes"); setComTelefone(false); setFsbo(false); setComEndereco(false);
-    setComMatricula(""); setSemAux(false); setComContato(""); setCaro(false);
+    setComMatricula(""); setSemAux(false); setComContato(""); setCaro(false); setSemExcl(false);
     startTransition(() => router.push("/imoveis"));
   }
 
@@ -144,6 +146,9 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
 
         <Marcador ligado={caro} set={setCaro} cor="#991b1b">
           💸 pede 60%+ acima do prédio
+        </Marcador>
+        <Marcador ligado={semExcl} set={setSemExcl} cor="#b45309">
+          🔁 sem exclusiva (preços diferentes)
         </Marcador>
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
