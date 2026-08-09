@@ -1,7 +1,17 @@
 import Link from "next/link";
+import nextDynamic from "next/dynamic";
 import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Enriquecer from "./enriquecer";
+import Imprimir from "./imprimir";
+
+// Leaflet usa window: só no cliente.
+const MiniMapa = nextDynamic(() => import("@/components/MiniMapa"), {
+  ssr: false,
+  loading: () => (
+    <div style={{ height: 260, background: "#eef1f4", borderRadius: 10 }} />
+  )
+});
 
 export const dynamic = "force-dynamic";
 
@@ -67,11 +77,53 @@ export default async function ImovelPage({ params }: { params: { id: string } })
               )}
             </div>
           </div>
-          <div style={{ ...bolha, background: corTemp, color: fgTemp }}>
-            {temp}
-            <div style={{ fontSize: 9, letterSpacing: 0.5 }}>TEMP</div>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <Imprimir />
+            <div style={{ ...bolha, background: corTemp, color: fgTemp }}>
+              {temp}
+              <div style={{ fontSize: 9, letterSpacing: 0.5 }}>TEMP</div>
+            </div>
           </div>
         </div>
+
+        {/* ⭐ FICHA-RESUMO: tudo que decide uma ligação, numa faixa só. Antes
+            estes números estavam espalhados por cinco blocos e o corretor
+            tinha que rolar a página para montar a conta na cabeça. */}
+        <section style={{ ...cartao, padding: 0, overflow: "hidden" }}>
+          <div style={faixaResumo}>
+            <Resumo r="Preço" v={imovel.price_formatted ?? brl(imovel.price)} forte />
+            <Resumo r="Área" v={imovel.area ? `${imovel.area} m²` : "—"} />
+            <Resumo
+              r="R$/m²"
+              v={imovel.price && imovel.area
+                  ? brl(Number(imovel.price) / Number(imovel.area)) : "—"}
+            />
+            <Resumo
+              r="Matrícula"
+              v={imovel.matricula
+                  ? `${imovel.matricula} · ${imovel.matricula_zona}ª zona`
+                  : Array.isArray(imovel.matricula_candidatas) && imovel.matricula_candidatas.length
+                    ? `${imovel.matricula_candidatas.length} candidatas`
+                    : "—"}
+            />
+            <Resumo
+              r="Contatos"
+              v={String(
+                (Array.isArray(imovel.telefones) ? imovel.telefones.length : 0) +
+                (Array.isArray(imovel.contatos_cnpj) ? imovel.contatos_cnpj.length : 0) +
+                (Array.isArray(imovel.contatos_predio) ? imovel.contatos_predio.length : 0) +
+                (Array.isArray(imovel.contatos_importados) ? imovel.contatos_importados.length : 0)
+              )}
+            />
+            <Resumo
+              r="Dono desde"
+              v={imovel.ultima_venda_data
+                  ? new Date(imovel.ultima_venda_data).toLocaleDateString("pt-BR", {
+                      month: "2-digit", year: "numeric", timeZone: "UTC" })
+                  : "—"}
+            />
+          </div>
+        </section>
 
         {/* ⭐ o endereço é o produto: primeiro bloco da tela */}
         <section style={cartao}>
@@ -139,6 +191,23 @@ export default async function ImovelPage({ params }: { params: { id: string } })
               inscrição imobiliária: <b>{imovel.inscricao_imobiliaria}</b>
             </div>
           )}
+          {imovel.latitude != null && (
+            <div style={{ marginTop: 12 }}>
+              <MiniMapa
+                lat={Number(imovel.latitude)}
+                lng={Number(imovel.longitude)}
+                cor={imovel.ja_e_nosso ? "#dc2626" : "#2563eb"}
+                incerto={Boolean(imovel.numero_inferido)}
+              />
+              {imovel.numero_inferido && (
+                <div style={{ fontSize: 11.5, color: "#8a6100", marginTop: 5 }}>
+                  O círculo é a margem de dúvida: o número da porta foi deduzido,
+                  então a posição exata pode ser um prédio vizinho.
+                </div>
+              )}
+            </div>
+          )}
+
           {imovel.latitude != null && (
             <a
               href={`https://www.google.com/maps?q=${imovel.latitude},${imovel.longitude}`}
@@ -810,6 +879,19 @@ const tagPessoa: React.CSSProperties = {
   verticalAlign: "middle"
 };
 
+function Resumo({ r, v, forte }: { r: string; v: React.ReactNode; forte?: boolean }) {
+  return (
+    <div style={{ padding: "12px 16px" }}>
+      <div style={{ fontSize: 10.5, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 }}>
+        {r}
+      </div>
+      <div style={{ fontSize: forte ? 19 : 15, fontWeight: forte ? 800 : 600, marginTop: 2 }}>
+        {v}
+      </div>
+    </div>
+  );
+}
+
 function Dado({ rotulo, valor }: { rotulo: string; valor: React.ReactNode }) {
   return (
     <div>
@@ -830,6 +912,11 @@ const header: React.CSSProperties = {
   gap: 12
 };
 const main: React.CSSProperties = { maxWidth: 860, margin: "0 auto", padding: 24 };
+const faixaResumo: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+  borderTop: "3px solid #111"
+};
 const h1: React.CSSProperties = { fontSize: 24, margin: 0, letterSpacing: -0.4 };
 const h2: React.CSSProperties = { fontSize: 14, margin: "0 0 12px", color: "#333" };
 const cartao: React.CSSProperties = {
