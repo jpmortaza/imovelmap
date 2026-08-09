@@ -28,6 +28,8 @@ type Row = {
   images: string[];
   source: string;
   source_url: string;
+  ja_e_nosso: boolean | null;
+  motivo_nosso: string | null;
 };
 
 export async function GET(req: Request) {
@@ -75,7 +77,7 @@ export async function GET(req: Request) {
   let query = svc
     .from("imoveis")
     .select(
-      "id,title,transaction_type,property_type,price,price_formatted,area,bedrooms,bathrooms,parking_spaces,neighborhood,city,state,latitude,longitude,images,source,source_url"
+      "id,title,transaction_type,property_type,price,price_formatted,area,bedrooms,bathrooms,parking_spaces,neighborhood,city,state,latitude,longitude,images,source,source_url,ja_e_nosso,motivo_nosso"
     )
     .eq("is_active", true)
     // Dentro de um enquadramento queremos AMOSTRA, nao "os mais recentes":
@@ -96,8 +98,13 @@ export async function GET(req: Request) {
       .gte("longitude", oeste).lte("longitude", leste)
       .gte("latitude", sul).lte("latitude", norte);
   }
+  // ⭐ "Só oportunidades" NÃO é "outro portal": é o que a Auxiliadora ainda
+  //    não tem. O mesmo apartamento anunciado pela Guarida E por nós não é
+  //    oportunidade — é a nossa carteira com outra roupa, e o corretor
+  //    perderia a ligação descobrindo isso. `ja_e_nosso` cruza por endereço,
+  //    unidade e área entre os portais; ver `marcar_ja_nosso`.
   if (fonte) query = query.eq("source", fonte);
-  if (excluir) query = query.neq("source", excluir);
+  if (excluir) query = query.eq("ja_e_nosso", false);
   if (areaMin) query = query.gte("area", Number(areaMin));
   if (semExclusiva) query = query.gt("temperatura", 0);
   if (transactionType) query = query.eq("transaction_type", transactionType);
@@ -142,7 +149,9 @@ export async function GET(req: Request) {
     lng: r.longitude,
     image: r.images?.[0] ?? null,
     source: r.source,
-    sourceUrl: r.source_url
+    sourceUrl: r.source_url,
+    jaENosso: r.ja_e_nosso ?? false,
+    motivoNosso: r.motivo_nosso
   }));
 
   return NextResponse.json(

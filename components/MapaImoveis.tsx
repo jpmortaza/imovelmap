@@ -41,7 +41,14 @@ export const NOMES_FONTE: Record<string, string> = {
   imovelweb: "ImovelWeb"
 };
 
-const corDaFonte = (f: string) => (f === FONTE_NOSSA ? COR_NOSSA : COR_OUTROS);
+/**
+ * ⚠️ A cor segue "JÁ É NOSSO", não o portal. O mesmo apartamento anunciado
+ *    pela Guarida e pela Auxiliadora tem que sair vermelho nos dois — é a
+ *    mesma carteira. Antes ele saía azul pelo lado da Guarida e o corretor
+ *    ligaria achando que era oportunidade.
+ */
+const corDoImovel = (i: { source: string; jaENosso?: boolean }) =>
+  i.jaENosso ?? i.source === FONTE_NOSSA ? COR_NOSSA : COR_OUTROS;
 
 const cacheIcones = new Map<string, L.Icon>();
 
@@ -51,8 +58,8 @@ const cacheIcones = new Map<string, L.Icon>();
  * qual ele abriu. Mudar a COR quebraria a leitura vermelho/azul, que é a
  * informação principal do mapa; então o destaque é tamanho e contorno.
  */
-function iconeDaFonte(fonte: string, selecionado = false) {
-  const cor = corDaFonte(fonte);
+function iconeDoImovel(i: { source: string; jaENosso?: boolean }, selecionado = false) {
+  const cor = corDoImovel(i);
   const chave = cor + (selecionado ? ":sel" : "");
   const existente = cacheIcones.get(chave);
   if (existente) return existente;
@@ -97,10 +104,13 @@ export type ImovelPublico = {
   image: string | null;
   source: string;
   sourceUrl: string;
+  jaENosso?: boolean;
+  motivoNosso?: string | null;
 };
 
 type Filtros = {
   tipo: "" | "sale" | "rent";
+  cidade: string;
   q: string;
   quartosMin: string;
   precoMin: string;
@@ -155,8 +165,18 @@ export default function MapaImoveis({
   const [aberto, setAberto] = useState<ImovelPublico | null>(null);
   // area visivel do mapa; o fetch passa a seguir para onde o corretor olha
   const [bbox, setBbox] = useState<string | null>(null);
+  // cidades da base, para o filtro — digitar "porto alegre" à mão erra acento
+  const [cidades, setCidades] = useState<{ cidade: string; n: number }[]>([]);
+  useEffect(() => {
+    if (cidade) return;                     // território já fixa a cidade
+    fetch("/api/imoveis/cidades")
+      .then((r) => (r.ok ? r.json() : { cidades: [] }))
+      .then((d) => setCidades(d.cidades ?? []))
+      .catch(() => {});
+  }, [cidade]);
   const [filtros, setFiltros] = useState<Filtros>({
     tipo: "",
+    cidade: "",
     q: "",
     quartosMin: "",
     precoMin: "",
@@ -169,6 +189,9 @@ export default function MapaImoveis({
     const ctrl = new AbortController();
     const qs = new URLSearchParams({ geo: "1", limit: "1500" });
     if (filtros.tipo) qs.set("tipo", filtros.tipo);
+    // a prop `cidade` vem do território do corretor e manda; o filtro só
+    // existe no mapa livre
+    if (!cidade && filtros.cidade) qs.set("cidade", filtros.cidade);
     if (filtros.q.trim()) qs.set("q", filtros.q.trim());
     if (filtros.quartosMin) qs.set("quartos_min", filtros.quartosMin);
     if (filtros.precoMin) qs.set("preco_min", filtros.precoMin);
@@ -220,6 +243,7 @@ export default function MapaImoveis({
         loading={loading}
         erro={erro}
         comPainel={aberto !== null}
+        cidades={cidades}
       />
 
       <MapContainer
@@ -240,7 +264,7 @@ export default function MapaImoveis({
             position={[i.lat!, i.lng!]}
             // pino selecionado por último fica por cima dos vizinhos
             zIndexOffset={aberto?.id === i.id ? 1000 : 0}
-            icon={iconeDaFonte(i.source, aberto?.id === i.id)}
+            icon={iconeDoImovel(i, aberto?.id === i.id)}
             eventHandlers={{ click: () => setAberto(i) }}
           />
         ))}
@@ -259,7 +283,8 @@ function FiltrosBar({
   total,
   loading,
   erro,
-  comPainel
+  comPainel,
+  cidades
 }: {
   filtros: Filtros;
   onChange: (f: Filtros) => void;
@@ -267,6 +292,7 @@ function FiltrosBar({
   loading: boolean;
   erro: string | null;
   comPainel: boolean;
+  cidades: { cidade: string; n: number }[];
 }) {
   return (
     <div
@@ -332,9 +358,24 @@ function FiltrosBar({
         <option value="rent">Aluguel</option>
       </select>
 
+      {cidades.length > 0 && (
+        <select
+          value={filtros.cidade}
+          onChange={(e) => onChange({ ...filtros, cidade: e.target.value })}
+          style={{ ...selectStyle, maxWidth: 190 }}
+        >
+          <option value="">Todas as cidades</option>
+          {cidades.map((c) => (
+            <option key={c.cidade} value={c.cidade}>
+              {c.cidade} ({c.n.toLocaleString("pt-BR")})
+            </option>
+          ))}
+        </select>
+      )}
+
       <input
         type="text"
-        placeholder="Bairro, cidade, rua ou título..."
+        placeholder="Bairro, rua ou título..."
         value={filtros.q}
         onChange={(e) => onChange({ ...filtros, q: e.target.value })}
         style={{ ...inputStyle, minWidth: 170, flex: 1 }}
@@ -394,7 +435,8 @@ function FiltrosBar({
 
       <button
         onClick={() =>
-          onChange({ tipo: "", q: "", quartosMin: "", precoMin: "", precoMax: "", areaMin: "", carteira: "" })
+          onChange({ tipo: "", cidade: "", q: "", quartosMin: "", precoMin: "",
+                     precoMax: "", areaMin: "", carteira: "" })
         }
         style={{
           border: "1px solid #ddd", background: "#fff", color: "#666",

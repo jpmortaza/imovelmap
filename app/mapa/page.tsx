@@ -46,7 +46,23 @@ export default async function Mapa() {
         <Link href="/" style={{ fontSize: 20, fontWeight: 800, color: "#111", letterSpacing: -0.3 }}>
           ImovelMap
         </Link>
-        <span style={{ color: "#aaa", fontSize: 13 }}>Mapa de prospecção</span>
+        <span style={{ color: "#aaa", fontSize: 13 }}>
+          Mapa de prospecção
+        </span>
+        {/* mesma leitura do painel do bairro, para quem chega direto aqui */}
+        <span
+          style={{
+            fontSize: 12.5,
+            color: "#666",
+            borderLeft: "1px solid #eee",
+            paddingLeft: 14,
+            marginLeft: 2
+          }}
+          className="im-legenda-topo"
+        >
+          <b style={{ color: "#dc2626" }}>Vermelho</b> já é da Auxiliadora ·{" "}
+          <b style={{ color: "#2563eb" }}>azul</b> é onde está o seu trabalho
+        </span>
 
         <nav style={{ marginLeft: "auto", display: "flex", gap: 10 }}>
           <Link href="/imoveis" style={navLink}>
@@ -59,6 +75,10 @@ export default async function Mapa() {
       </header>
 
       <MapaImoveis />
+
+      <style>{`
+        @media (max-width: 780px) { .im-legenda-topo { display: none } }
+      `}</style>
     </div>
   );
 }
