@@ -4,6 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Enriquecer from "./enriquecer";
 import Imprimir from "./imprimir";
+import Galeria from "./galeria";
 
 // Leaflet usa window: só no cliente.
 const MiniMapa = nextDynamic(() => import("@/components/MiniMapa"), {
@@ -32,6 +33,12 @@ export default async function ImovelPage({ params }: { params: { id: string } })
     .maybeSingle();
 
   if (!imovel) notFound();
+
+  // outros imóveis à venda no MESMO prédio — comparável direto e sinal de
+  // atividade. 8.978 prédios de POA têm 2+ à venda ao mesmo tempo.
+  const { data: noPredio } = await supabase.rpc("imoveis_no_predio", {
+    p_imovel_id: params.id
+  });
 
   const brl = (v: number | null) =>
     v == null
@@ -226,7 +233,9 @@ export default async function ImovelPage({ params }: { params: { id: string } })
         <Matricula imovel={imovel} />
         <ContatosCnpj imovel={imovel} />
         <ContatosPredio imovel={imovel} />
+        <ContatosEntorno imovel={imovel} />
         <ContatosImportados imovel={imovel} />
+        <NoPredio lista={noPredio ?? []} imovel={imovel} />
 
         <section style={cartao}>
           <h2 style={h2}>💰 Valores</h2>
@@ -399,24 +408,7 @@ export default async function ImovelPage({ params }: { params: { id: string } })
         {Array.isArray(imovel.images) && imovel.images.length > 0 && (
           <section style={cartao}>
             <h2 style={h2}>📸 Fotos ({imovel.images.length})</h2>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-                gap: 8
-              }}
-            >
-              {imovel.images.slice(0, 24).map((u: string, i: number) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  key={i}
-                  src={u}
-                  alt=""
-                  loading="lazy"
-                  style={{ width: "100%", height: 110, objectFit: "cover", borderRadius: 8 }}
-                />
-              ))}
-            </div>
+            <Galeria imagens={imovel.images} titulo={imovel.title ?? "Imóvel"} />
           </section>
         )}
       </main>
@@ -809,6 +801,115 @@ function docMascarado(d: string | null): string | null {
   if (v.length === 14) return `${v.slice(0, 2)}.***.***/${v.slice(8, 12)}-${v.slice(12)}`;
   return null;
 }
+
+/**
+ * Empresas nos números VIZINHOS da mesma rua.
+ *
+ * É a pista mais fraca das três (unidade > prédio > entorno) e a tela diz
+ * isso. Serve para bater na porta ao lado: o vizinho sabe de quem é o imóvel,
+ * há quanto tempo está à venda e quem já veio olhar.
+ */
+function ContatosEntorno({ imovel }: { imovel: Record<string, any> }) {
+  const c = Array.isArray(imovel.contatos_entorno) ? imovel.contatos_entorno : null;
+  if (!c?.length) return null;
+  return (
+    <section style={{ ...cartao, borderLeft: "4px solid #94a3b8" }}>
+      <h2 style={h2}>📍 No entorno (mesma rua, números vizinhos)</h2>
+      <p style={{ fontSize: 12.5, color: "#666", margin: "0 0 10px", lineHeight: 1.55 }}>
+        Nenhuma empresa registrada no endereço exato. Estas estão a poucos
+        números de distância — servem para perguntar, não para afirmar.
+      </p>
+      <div style={{ display: "grid", gap: 5 }}>
+        {c.slice(0, 6).map((x: any, i: number) => (
+          <div key={i} style={linhaContato}>
+            <span>
+              <span style={{ color: "#888", marginRight: 6 }}>nº {x.numero}</span>
+              <b>{x.nome}</b>
+              <span style={{ fontSize: 11, color: "#999", marginLeft: 6 }}>
+                {x.distancia} {x.distancia === 1 ? "número" : "números"} de distância
+              </span>
+            </span>
+            {x.fone && (
+              <a href={`tel:+55${x.fone}`} style={{ color: "#0b6bcb", fontWeight: 600 }}>
+                {fone(x.fone)}
+              </a>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Outros imóveis à venda no mesmo prédio. */
+function NoPredio({
+  lista,
+  imovel
+}: {
+  lista: any[];
+  imovel: Record<string, any>;
+}) {
+  if (!lista?.length) return null;
+  const brl = (v: number | null) =>
+    v == null ? "—" : Number(v).toLocaleString("pt-BR",
+      { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  const meuM2 =
+    imovel.price && imovel.area ? Number(imovel.price) / Number(imovel.area) : null;
+
+  return (
+    <section style={cartao}>
+      <h2 style={h2}>🏢 Outros à venda neste prédio ({lista.length})</h2>
+      <p style={{ fontSize: 12.5, color: "#666", margin: "0 0 12px", lineHeight: 1.55 }}>
+        Comparável direto — o corretor argumenta com o vizinho de porta, não com
+        a média do bairro. Vários à venda ao mesmo tempo também é sinal: pode
+        ser obra, taxa de condomínio ou mudança no prédio.
+      </p>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+          <thead>
+            <tr style={{ color: "#777", textAlign: "left" }}>
+              <th style={th}>Unidade</th><th style={th}>Área</th>
+              <th style={th}>Preço</th><th style={th}>R$/m²</th>
+              <th style={th}>Portal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lista.map((v) => (
+              <tr key={v.id} style={{ borderTop: "1px solid #f0f0f0" }}>
+                <td style={td}>
+                  <Link href={`/imoveis/${v.id}`} style={{ color: "#0366d6", fontWeight: 600 }}>
+                    {v.unidade ?? "—"}
+                  </Link>
+                  {v.ja_e_nosso && (
+                    <span style={{ ...tagPessoa, background: "#fee2e2", color: "#991b1b", marginLeft: 6 }}>
+                      nosso
+                    </span>
+                  )}
+                </td>
+                <td style={td}>{v.area ? `${v.area} m²` : "—"}</td>
+                <td style={td}>{brl(v.preco)}</td>
+                <td style={{ ...td, fontWeight: 600,
+                             color: meuM2 && v.preco_m2 && v.preco_m2 < meuM2 ? "#991b1b" : "#157f3c" }}>
+                  {v.preco_m2 ? brl(v.preco_m2) : "—"}
+                </td>
+                <td style={{ ...td, color: "#888" }}>{v.fonte}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {meuM2 && (
+        <div style={{ fontSize: 11.5, color: "#777", marginTop: 8 }}>
+          Em <b style={{ color: "#991b1b" }}>vermelho</b>, o vizinho que pede
+          menos por m² que este imóvel.
+        </div>
+      )}
+    </section>
+  );
+}
+
+const th: React.CSSProperties = { padding: "6px 8px", fontWeight: 600, fontSize: 11 };
+const td: React.CSSProperties = { padding: "7px 8px" };
 
 /** Contatos de base própria importada pelo admin (ver /admin/importar). */
 function ContatosImportados({ imovel }: { imovel: Record<string, any> }) {
