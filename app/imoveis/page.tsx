@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import BuscarForm from "./buscar-form";
+import BuscaNatural from "./busca-natural";
 import FavoritarButton from "./favoritar-button";
 
 export const dynamic = "force-dynamic";
@@ -111,6 +112,13 @@ export default async function ImoveisPage({
     .limit(4000);
   const cidades = [...new Set((cidadesRaw ?? []).map((c: any) => c.city))].sort();
 
+  // bairros para a busca natural reconhecer "no Menino Deus" — sem a lista
+  // real ela chutaria, e "Vila Nova" seria achado dentro de "Vila Nova do Sul"
+  const { data: bairrosRaw } = await supabase.rpc("bairros_da_cidade", {
+    p_cidade: searchParams.cidade ?? null
+  });
+  const bairros = (bairrosRaw ?? []).map((b: any) => b.bairro).filter(Boolean);
+
   const qs = (p: number) => {
     const sp = new URLSearchParams(
       Object.entries(searchParams).filter(([k, v]) => v && k !== "pagina") as [string, string][]
@@ -126,6 +134,7 @@ export default async function ImoveisPage({
         Buscar imóveis
       </h1>
 
+      <BuscaNatural bairros={bairros} />
       <BuscarForm cidades={cidades} />
 
       {error && (
