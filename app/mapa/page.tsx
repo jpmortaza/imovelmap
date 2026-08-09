@@ -58,7 +58,7 @@ export default async function Mapa() {
   return (
     <div style={{ minHeight: "100vh", background: "#f7f7f8" }}>
       <header style={header}>
-        <Link href="/" style={{ fontSize: 20, fontWeight: 800, color: "#111", letterSpacing: -0.3 }}>
+        <Link href="/painel" style={{ fontSize: 20, fontWeight: 800, color: "#111", letterSpacing: -0.3 }}>
           ImovelMap
         </Link>
         <span style={{ color: "#aaa", fontSize: 13 }}>

@@ -35,13 +35,12 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute =
     url.pathname.startsWith("/login") || url.pathname.startsWith("/auth");
 
-  // Publico: so a vitrine (`/`, que mostra numero agregado e nada mais) e a
-  // pagina da extensao.
+  // Publico: so a raiz (que E a tela de login) e a pagina da extensao.
   //
-  // ⚠️ O MAPA NAO E PUBLICO, e a API que o alimenta tambem nao. Ele mostra
-  //    onde cada imovel esta e o que ja e nosso — e o mapa de oportunidades da
-  //    operacao. Aberto, entregaria a carteira e o resultado do enriquecimento
-  //    para qualquer concorrente. Vive em `/mapa`, atras do login.
+  // ⚠️ NADA MAIS E PUBLICO. O mapa mostra onde cada imovel esta e o que ja e
+  //    nosso — e o mapa de oportunidades da operacao. A lista mostra endereco,
+  //    matricula e contato. Aberto, entregaria a carteira e o resultado do
+  //    enriquecimento para qualquer concorrente.
   const isPublica =
     url.pathname === "/" ||
     url.pathname.startsWith("/extensao");
@@ -53,15 +52,16 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.json({ error: "nao autenticado" }, { status: 401 });
     }
     const redirect = url.clone();
-    redirect.pathname = "/login";
-    // guarda para onde a pessoa queria ir, para voltar depois do login
+    redirect.pathname = "/";
+    // guarda para onde a pessoa queria ir, para voltar depois de entrar
+    redirect.search = "";
     redirect.searchParams.set("de", url.pathname + url.search);
     return NextResponse.redirect(redirect);
   }
 
-  // Quem entra vai para o PAINEL, nao para a lista: a primeira tela do
-  // corretor e o territorio dele, nao um catalogo.
-  if (user && url.pathname === "/login") {
+  // Quem ja entrou nao ve a tela de login: vai para o PAINEL, que e o
+  // territorio dele.
+  if (user && (url.pathname === "/" || url.pathname === "/login")) {
     const redirect = url.clone();
     redirect.pathname = "/painel";
     redirect.search = "";

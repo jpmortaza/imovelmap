@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export type ItemMenu = {
   href: string;
@@ -34,6 +35,16 @@ export default function MenuLateral({
 }) {
   const path = usePathname();
   const [aberto, setAberto] = useState(false);
+  const [saindo, setSaindo] = useState(false);
+
+  // ⚠️ Isto era um <Link href="/">, e virou laço quando a raiz passou a ser a
+  //    tela de login: usuário logado em `/` é mandado de volta para /painel.
+  //    "Sair" tem que encerrar a sessão, não navegar.
+  async function sair() {
+    setSaindo(true);
+    await createClient().auth.signOut();
+    window.location.href = "/";
+  }
 
   const ativo = (i: ItemMenu) =>
     i.prefixo ? path === i.href || path.startsWith(i.href + "/") : path === i.href;
@@ -81,10 +92,17 @@ export default function MenuLateral({
           <div style={{ fontSize: 11.5, color: "#6f7d8c", wordBreak: "break-all", marginBottom: 8 }}>
             {email}
           </div>
-          <Link href="/" style={{ ...item, color: "#8fa0b1", fontSize: 12.5, padding: "7px 10px" }}>
+          <button
+            onClick={sair}
+            disabled={saindo}
+            style={{
+              ...item, color: "#8fa0b1", fontSize: 12.5, padding: "7px 10px",
+              background: "transparent", border: 0, cursor: "pointer", width: "100%"
+            }}
+          >
             <span style={{ width: 20, textAlign: "center" }}>↩</span>
-            <span>Sair do painel</span>
-          </Link>
+            <span>{saindo ? "saindo…" : "Sair"}</span>
+          </button>
         </div>
       </aside>
 
