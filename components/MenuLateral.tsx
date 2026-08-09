@@ -17,7 +17,7 @@ export type ItemMenu = {
  * Menu lateral da área logada.
  *
  * Substituiu a barra superior: o corretor vive em três telas (o bairro dele,
- * a fila do dia e o mapa) e ficava trocando entre elas o tempo todo. Na
+ * o mapa e a busca) e ficava trocando entre elas o tempo todo. Na
  * lateral as três ficam sempre à vista, e sobra a largura da tela para o
  * mapa, que é onde ele realmente trabalha.
  *

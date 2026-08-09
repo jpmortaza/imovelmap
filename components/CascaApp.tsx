@@ -41,8 +41,10 @@ export default async function CascaApp({
     : eu?.cidade ?? null;
 
   const itens: ItemMenu[] = [
-    { href: "/painel", rotulo: "Meu bairro", icone: "◎" },
-    { href: "/painel/fila", rotulo: "Fila do dia", icone: "☰", badge: naoLidas ?? 0 },
+    // A "fila do dia" saiu: uma cota de dez imóveis sem contexto não é como o
+    // corretor trabalha. Ele parte do bairro e filtra a lista pelo que quer
+    // (matrícula, contato, sobrepreço).
+    { href: "/painel", rotulo: "Meu bairro", icone: "◎", badge: naoLidas ?? 0 },
     { href: "/mapa", rotulo: "Mapa", icone: "◈" },
     { href: "/imoveis", rotulo: "Buscar imóveis", icone: "⌕", prefixo: true },
     { href: "/painel/favoritos", rotulo: "Favoritos", icone: "★" },

@@ -92,7 +92,12 @@ export default function ImportarPage() {
   const [observacao, setObservacao] = useState("");
 
   const [rodando, setRodando] = useState(false);
-  const [progresso, setProgresso] = useState<string | null>(null);
+  // progresso de verdade: etapa + quanto já foi, para o Jean saber que a
+  // importação está viva. Arquivo grande leva minutos e um botão "importando…"
+  // parado parece travado.
+  const [etapa, setEtapa] = useState<string | null>(null);
+  const [feito, setFeito] = useState(0);
+  const [totalLinhas, setTotalLinhas] = useState(0);
   const [msg, setMsg] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -153,6 +158,9 @@ export default function ImportarPage() {
     }
     setRodando(true);
     setMsg(null);
+    setFeito(0);
+    setTotalLinhas(0);
+    setEtapa("criando o lote…");
     try {
       const rc = await fetch("/api/admin/importar", {
         method: "POST",
@@ -163,10 +171,13 @@ export default function ImportarPage() {
       if (!rc.ok) throw new Error(jc.error);
       const id = jc.id as string;
 
+      setEtapa("lendo o arquivo…");
       const texto = await arquivo.text();
       const linhas = texto.split(/\r?\n/).filter(Boolean).slice(1);
       let enviadas = 0;
       const LOTE = 500;
+      setTotalLinhas(linhas.length);
+      setEtapa("enviando");
 
       for (let i = 0; i < linhas.length; i += LOTE) {
         const itens = linhas.slice(i, i + LOTE).map((l) => {
@@ -185,10 +196,10 @@ export default function ImportarPage() {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error);
         enviadas += j.inseridas ?? 0;
-        setProgresso(`${enviadas} de ${linhas.length} linhas`);
+        setFeito(Math.min(i + LOTE, linhas.length));
       }
 
-      setProgresso("cruzando com os imóveis…");
+      setEtapa("cruzando com os imóveis…");
       const rm = await fetch("/api/admin/importar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -199,14 +210,14 @@ export default function ImportarPage() {
         `Importadas ${enviadas} linhas. Ligadas a imóveis: ` +
           `${jm.naUnidade ?? 0} na unidade exata, ${jm.noPredio ?? 0} no prédio.`
       );
-      setProgresso(null);
+      setEtapa(null);
       setArquivo(null);
       setCabecalho([]);
       if (inputRef.current) inputRef.current.value = "";
       await carregar();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "erro na importação");
-      setProgresso(null);
+      setEtapa(null);
     } finally {
       setRodando(false);
     }
@@ -222,6 +233,10 @@ export default function ImportarPage() {
 
   return (
     <div>
+      <style>{`
+        @keyframes im-desliza { from { background-position: 0 0 } to { background-position: 28px 0 } }
+        @keyframes im-gira { to { transform: rotate(360deg) } }
+      `}</style>
       <h1 style={{ fontSize: 24, margin: "0 0 6px" }}>Importar base de contatos</h1>
       <p style={{ color: "#666", fontSize: 13.5, margin: "0 0 20px", lineHeight: 1.6, maxWidth: 720 }}>
         Sobe uma planilha sua e liga cada contato ao imóvel pelo endereço. Casa
@@ -321,8 +336,42 @@ export default function ImportarPage() {
           )}
 
           <button onClick={importar} disabled={rodando || !temEndereco} style={{ ...btn, marginTop: 14 }}>
-            {rodando ? progresso ?? "importando…" : "Importar e cruzar"}
+            {rodando ? "importando…" : "Importar e cruzar"}
           </button>
+
+          {rodando && (
+            <div style={caixaProgresso}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                <span>
+                  <span style={girando}>◐</span> {etapa}
+                  {etapa === "enviando" && totalLinhas > 0 && (
+                    <> {feito.toLocaleString("pt-BR")} de {totalLinhas.toLocaleString("pt-BR")} linhas</>
+                  )}
+                </span>
+                {etapa === "enviando" && totalLinhas > 0 && (
+                  <b>{Math.round((feito / totalLinhas) * 100)}%</b>
+                )}
+              </div>
+              <div style={trilho}>
+                <div
+                  style={{
+                    ...barra,
+                    width:
+                      etapa === "enviando" && totalLinhas > 0
+                        ? `${Math.round((feito / totalLinhas) * 100)}%`
+                        : "100%",
+                    // sem total conhecido a barra fica listrada e animada, para
+                    // não fingir uma porcentagem que não existe
+                    ...(etapa === "enviando" && totalLinhas > 0 ? null : indeterminada)
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: 11.5, color: "#777", marginTop: 6 }}>
+                Não feche esta aba — o arquivo é lido aqui no navegador e enviado
+                em pedaços de 500 linhas.
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -404,6 +453,27 @@ const aviso: React.CSSProperties = {
   borderRadius: 10, padding: "12px 15px", fontSize: 13, lineHeight: 1.55,
   marginBottom: 14, maxWidth: 760
 };
+const caixaProgresso: React.CSSProperties = {
+  marginTop: 14, background: "#f6f9fc", border: "1px solid #dde7f0",
+  borderRadius: 10, padding: "12px 14px"
+};
+const trilho: React.CSSProperties = {
+  height: 8, background: "#e3ebf2", borderRadius: 99,
+  overflow: "hidden", marginTop: 8
+};
+const barra: React.CSSProperties = {
+  height: "100%", background: "#157f3c", borderRadius: 99,
+  transition: "width .25s ease"
+};
+const indeterminada: React.CSSProperties = {
+  backgroundImage:
+    "repeating-linear-gradient(45deg,#157f3c 0 10px,#1a9c4a 10px 20px)",
+  animation: "im-desliza 1s linear infinite"
+};
+const girando: React.CSSProperties = {
+  display: "inline-block", marginRight: 5, animation: "im-gira 1s linear infinite"
+};
+
 const caixaMsg: React.CSSProperties = {
   background: "#eef2ff", color: "#3b4ec2", borderRadius: 8,
   padding: "11px 15px", fontSize: 13.5, marginBottom: 14

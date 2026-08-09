@@ -3,12 +3,12 @@ import nextDynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-// ⭐ A PRIMEIRA TELA DO CORRETOR É O BAIRRO DELE.
+// ⭐ A PRIMEIRA E ÚNICA TELA DE PARTIDA DO CORRETOR É O BAIRRO DELE.
 //
-// Antes o login caía na fila do dia, que é uma lista de dez imóveis sem
-// contexto. O corretor trabalha um território: ele precisa ver o bairro
-// inteiro — quanto tem, quanto já é nosso, quanto é oportunidade e onde as
-// coisas estão — antes de olhar a fila. A fila virou /painel/fila.
+// Existia uma "fila do dia" com cota de dez imóveis. Saiu: o corretor não
+// trabalha por cota, trabalha por território — ele olha o bairro inteiro e
+// filtra a lista pelo que quer (matrícula, contato, sobrepreço). Cada número
+// daqui é um link que abre a lista já filtrada.
 
 const MapaImoveis = nextDynamic(() => import("@/components/MapaImoveis"), {
   ssr: false,
@@ -74,11 +74,8 @@ export default async function Painel() {
             definir a sua cidade e os seus bairros em{" "}
             <b>Administração → Corretores</b>.
           </p>
-          <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <Link href="/painel/fila" style={btn}>
-              Ver a fila do dia
-            </Link>
-            <Link href="/imoveis" style={btnSec}>
+          <div style={{ marginTop: 14 }}>
+            <Link href="/imoveis" style={btn}>
               Buscar imóveis
             </Link>
           </div>
@@ -98,8 +95,11 @@ export default async function Painel() {
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
         <h1 style={h1}>{bairros.join(" · ")}</h1>
         <span style={{ color: "#888", fontSize: 14 }}>{cidade}</span>
-        <Link href="/painel/fila" style={{ ...btn, marginLeft: "auto" }}>
-          Fila do dia →
+        <Link
+          href={`/imoveis?bairro=${encodeURIComponent(bairros[0])}&sem_auxiliadora=1&com_matricula=2`}
+          style={{ ...btn, marginLeft: "auto" }}
+        >
+          Trabalhar a lista →
         </Link>
       </div>
 

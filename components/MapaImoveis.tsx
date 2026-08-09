@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -45,24 +45,36 @@ const corDaFonte = (f: string) => (f === FONTE_NOSSA ? COR_NOSSA : COR_OUTROS);
 
 const cacheIcones = new Map<string, L.Icon>();
 
-function iconeDaFonte(fonte: string) {
+/**
+ * Pino da fonte. `selecionado` desenha o MESMO pino maior, com anel escuro e
+ * miolo preenchido — o corretor precisa achar de volta, no meio de centenas,
+ * qual ele abriu. Mudar a COR quebraria a leitura vermelho/azul, que é a
+ * informação principal do mapa; então o destaque é tamanho e contorno.
+ */
+function iconeDaFonte(fonte: string, selecionado = false) {
   const cor = corDaFonte(fonte);
-  const existente = cacheIcones.get(cor);
+  const chave = cor + (selecionado ? ":sel" : "");
+  const existente = cacheIcones.get(chave);
   if (existente) return existente;
 
+  const [w, h] = selecionado ? [37, 61] : [25, 41];
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 25 41">` +
     `<path d="M12.5 0C5.6 0 0 5.6 0 12.5 0 21.9 12.5 41 12.5 41S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0z" ` +
-    `fill="${cor}" stroke="rgba(0,0,0,.25)" stroke-width="1"/>` +
-    `<circle cx="12.5" cy="12.5" r="4.6" fill="#fff"/></svg>`;
+    `fill="${cor}" stroke="${selecionado ? "#111" : "rgba(0,0,0,.25)"}" ` +
+    `stroke-width="${selecionado ? 2.5 : 1}"/>` +
+    (selecionado
+      ? `<circle cx="12.5" cy="12.5" r="5.2" fill="#fff"/>` +
+        `<circle cx="12.5" cy="12.5" r="2.4" fill="#111"/>`
+      : `<circle cx="12.5" cy="12.5" r="4.6" fill="#fff"/>`) +
+    `</svg>`;
 
   const icone = L.icon({
     iconUrl: "data:image/svg+xml;base64," + btoa(svg),
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34]
+    iconSize: [w, h],
+    iconAnchor: [Math.round(w / 2), h]
   });
-  cacheIcones.set(cor, icone);
+  cacheIcones.set(chave, icone);
   return icone;
 }
 
@@ -207,6 +219,7 @@ export default function MapaImoveis({
         total={pinned.length}
         loading={loading}
         erro={erro}
+        comPainel={aberto !== null}
       />
 
       <MapContainer
@@ -225,60 +238,11 @@ export default function MapaImoveis({
           <Marker
             key={i.id}
             position={[i.lat!, i.lng!]}
-            icon={iconeDaFonte(i.source)}
+            // pino selecionado por último fica por cima dos vizinhos
+            zIndexOffset={aberto?.id === i.id ? 1000 : 0}
+            icon={iconeDaFonte(i.source, aberto?.id === i.id)}
             eventHandlers={{ click: () => setAberto(i) }}
-          >
-            <Popup maxWidth={280}>
-              <div style={{ minWidth: 220 }}>
-                {i.image && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={i.image}
-                    alt={i.title}
-                    style={{
-                      width: "100%",
-                      height: 120,
-                      objectFit: "cover",
-                      borderRadius: 6,
-                      marginBottom: 6
-                    }}
-                  />
-                )}
-                <div style={{ fontWeight: 700, fontSize: 15 }}>
-                  {i.priceFormatted ?? "Sob consulta"}
-                  {i.transactionType === "rent" && (
-                    <span style={{ fontSize: 11, color: "#666" }}> /mês</span>
-                  )}
-                </div>
-                <div style={{ fontSize: 13, color: "#333", margin: "2px 0" }}>
-                  {i.title}
-                </div>
-                <div style={{ fontSize: 12, color: "#666" }}>
-                  {[i.neighborhood, i.city].filter(Boolean).join(" · ")}
-                </div>
-                <div style={{ fontSize: 12, color: "#444", marginTop: 4 }}>
-                  {[
-                    i.area && `${i.area}m²`,
-                    i.bedrooms != null && `${i.bedrooms} quartos`,
-                    i.bathrooms != null && `${i.bathrooms} banh.`,
-                    i.parkingSpaces != null && `${i.parkingSpaces} vagas`
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </div>
-                <button
-                  onClick={() => setAberto(i)}
-                  style={{
-                    marginTop: 8, fontSize: 12, cursor: "pointer",
-                    background: "#111", color: "#fff", border: 0,
-                    borderRadius: 6, padding: "6px 10px", width: "100%"
-                  }}
-                >
-                  Abrir dossiê →
-                </button>
-              </div>
-            </Popup>
-          </Marker>
+          />
         ))}
       </MapContainer>
 
@@ -294,30 +258,39 @@ function FiltrosBar({
   onChange,
   total,
   loading,
-  erro
+  erro,
+  comPainel
 }: {
   filtros: Filtros;
   onChange: (f: Filtros) => void;
   total: number;
   loading: boolean;
   erro: string | null;
+  comPainel: boolean;
 }) {
   return (
     <div
       style={{
         position: "absolute",
         top: 12,
-        left: 12,
-        right: 12,
+        // ⚠️ 56 à esquerda: abaixo disso a barra cobre o zoom +/- do Leaflet,
+        //    que fica em (10,10). Era isso que embolava o canto.
+        left: 56,
+        // e 356 à direita quando o painel do imóvel está aberto (340 + folga),
+        // senão os últimos filtros somem atrás dele
+        right: comPainel ? 356 : 12,
         zIndex: 1000,
         background: "rgba(255,255,255,.96)",
-        padding: 12,
+        padding: 10,
         borderRadius: 12,
         boxShadow: "0 4px 16px rgba(0,0,0,.12)",
         display: "flex",
         flexWrap: "wrap",
-        gap: 8,
-        alignItems: "center"
+        gap: 7,
+        alignItems: "center",
+        maxHeight: "45%",
+        overflowY: "auto",
+        boxSizing: "border-box"
       }}
     >
       {/* ⭐ o filtro que o corretor mais usa: "me mostre so o que NAO e nosso" */}
@@ -443,16 +416,21 @@ function FiltrosBar({
 }
 
 const inputStyle: React.CSSProperties = {
-  padding: "8px 10px",
+  padding: "7px 9px",
   borderRadius: 8,
   border: "1px solid #ddd",
-  fontSize: 13
+  fontSize: 12.5,
+  // `minWidth: 0` é o que deixa o item encolher dentro do flex — sem isso o
+  // conteúdo define um piso e a barra transborda em vez de quebrar a linha
+  minWidth: 0,
+  boxSizing: "border-box"
 };
 
 const selectStyle: React.CSSProperties = {
   ...inputStyle,
   cursor: "pointer",
-  background: "#fff"
+  background: "#fff",
+  maxWidth: 145
 };
 
 /**
