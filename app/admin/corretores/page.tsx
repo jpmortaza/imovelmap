@@ -10,6 +10,8 @@ type Corretor = {
   role: string;
   ativo: boolean;
   cota_diaria: number;
+  telefone: string | null;
+  creci: string | null;
   cidade: string | null;
   bairros: string[] | null;
   created_at: string;
@@ -20,6 +22,11 @@ export default function CorretoresPage() {
   const [carregando, setCarregando] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [link, setLink] = useState<string | null>(null);
+  // ⚠️ A senha vive SÓ aqui, em memória, até o admin copiar. Não é gravada em
+  //    lugar nenhum nosso — o Supabase guarda o hash. Se ele recarregar a
+  //    página sem copiar, some, e o caminho é gerar outra.
+  const [acesso, setAcesso] = useState<{ email: string; senha: string } | null>(null);
+  const [senha, setSenha] = useState("");
 
   const [email, setEmail] = useState("");
   const [nome, setNome] = useState("");
@@ -59,13 +66,16 @@ export default function CorretoresPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email, nome, role, cota_diaria: Number(cota), cidade, bairros
+          email, nome, role, cota_diaria: Number(cota), cidade, bairros,
+          senha: senha.trim() || undefined
         })
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error);
       setMsg(`Conta criada para ${j.email}.`);
       setLink(j.link ?? null);
+      if (j.senha) setAcesso({ email: j.email, senha: j.senha });
+      setSenha("");
       setEmail("");
       setNome("");
       setCidade("");
@@ -94,9 +104,41 @@ export default function CorretoresPage() {
     }
   }
 
+  /** Senha forte e digitável: sem 0/O/1/l, que geram erro ao ditar por telefone. */
+  function gerarSenha() {
+    const abc = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    const n = new Uint32Array(14);
+    crypto.getRandomValues(n);
+    setSenha([...n].map((x) => abc[x % abc.length]).join(""));
+  }
+
+  async function trocarSenha(id: string, emailAlvo: string) {
+    const nova = prompt(
+      `Nova senha para ${emailAlvo} (mínimo 8 caracteres).\n` +
+      `Deixe em branco para cancelar.`
+    );
+    if (!nova?.trim()) return;
+    setMsg(null);
+    setLink(null);
+    try {
+      const r = await fetch("/api/admin/corretores", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, senha: nova.trim() })
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error);
+      setAcesso({ email: emailAlvo, senha: j.senha });
+      setMsg(`Senha trocada para ${emailAlvo}.`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "erro");
+    }
+  }
+
   async function novoLink(emailAlvo: string) {
     setMsg(null);
     setLink(null);
+    setAcesso(null);
     try {
       const r = await fetch("/api/admin/corretores", {
         method: "PUT",
@@ -144,6 +186,19 @@ export default function CorretoresPage() {
             <input type="number" min={0} max={500} value={cota}
               onChange={(e) => setCota(e.target.value)} style={input} />
           </Campo>
+          <Campo r="Senha (opcional)" larg={230}>
+            <div style={{ display: "flex", gap: 5 }}>
+              <input
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                placeholder="em branco = link por e-mail"
+                style={input}
+              />
+              <button type="button" onClick={gerarSenha} style={{ ...btnSec, whiteSpace: "nowrap" }}>
+                gerar
+              </button>
+            </div>
+          </Campo>
         </div>
 
         {/* ⭐ Território já no cadastro: sem cidade e bairro o corretor entra
@@ -172,6 +227,48 @@ export default function CorretoresPage() {
       </form>
 
       {msg && <div style={caixaMsg}>{msg}</div>}
+      {acesso && (
+        <div style={caixaAcesso}>
+          <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
+            Acesso pronto para enviar. <b>A senha aparece uma vez só</b> — se
+            fechar sem copiar, gere outra.
+          </div>
+          <div style={{ display: "grid", gap: 4, fontSize: 14, fontFamily: "ui-monospace, monospace" }}>
+            <div>{acesso.email}</div>
+            <div style={{ fontWeight: 700, fontSize: 17 }}>{acesso.senha}</div>
+          </div>
+          <div style={{ display: "flex", gap: 7, marginTop: 11, flexWrap: "wrap" }}>
+            <button
+              onClick={() =>
+                navigator.clipboard?.writeText(
+                  `Acesso ao ImovelMap\n\n` +
+                  `Site: https://imovelmap.com\n` +
+                  `E-mail: ${acesso.email}\n` +
+                  `Senha: ${acesso.senha}\n\n` +
+                  `Troque a senha depois de entrar.`
+                )
+              }
+              style={btnClaro}
+            >
+              📋 copiar mensagem pronta
+            </button>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(
+                `Acesso ao ImovelMap\n\nSite: https://imovelmap.com\nE-mail: ${acesso.email}\nSenha: ${acesso.senha}\n\nTroque a senha depois de entrar.`
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+              style={btnClaro}
+            >
+              enviar por WhatsApp
+            </a>
+            <button onClick={() => setAcesso(null)} style={{ ...btnSec, background: "transparent", color: "#9bb0c4", borderColor: "#33465a" }}>
+              já copiei
+            </button>
+          </div>
+        </div>
+      )}
+
       {link && (
         <div style={caixaLink}>
           <div style={{ fontSize: 12, marginBottom: 6, opacity: 0.8 }}>
@@ -203,8 +300,28 @@ export default function CorretoresPage() {
               {lista.map((c) => (
                 <tr key={c.id} style={{ borderTop: "1px solid #eee" }}>
                   <Td>
-                    <div style={{ fontWeight: 600 }}>{c.nome ?? "—"}</div>
-                    <div style={{ fontSize: 11.5, color: "#888" }}>{c.email}</div>
+                    {/* editáveis na própria linha: salva ao sair do campo, que
+                        é menos clique que abrir um formulário para trocar um
+                        telefone */}
+                    <input
+                      defaultValue={c.nome ?? ""}
+                      placeholder="nome"
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v !== (c.nome ?? "")) alterar(c.id, { nome: v });
+                      }}
+                      style={{ ...input, fontWeight: 600, padding: "5px 7px", width: 170 }}
+                    />
+                    <div style={{ fontSize: 11.5, color: "#888", margin: "3px 0" }}>{c.email}</div>
+                    <input
+                      defaultValue={c.telefone ?? ""}
+                      placeholder="telefone"
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v !== (c.telefone ?? "")) alterar(c.id, { telefone: v });
+                      }}
+                      style={{ ...input, padding: "4px 7px", fontSize: 12, width: 170 }}
+                    />
                   </Td>
                   <Td>
                     {editando === c.id ? (
@@ -262,9 +379,14 @@ export default function CorretoresPage() {
                   </Td>
                   <Td>
                     {c.email && (
-                      <button onClick={() => novoLink(c.email!)} style={btnSec}>
-                        gerar acesso
-                      </button>
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                        <button onClick={() => trocarSenha(c.id, c.email!)} style={btnSec}>
+                          definir senha
+                        </button>
+                        <button onClick={() => novoLink(c.email!)} style={btnSec}>
+                          link por e-mail
+                        </button>
+                      </div>
                     )}
                   </Td>
                 </tr>
@@ -320,6 +442,15 @@ const pilula: React.CSSProperties = {
 const caixaMsg: React.CSSProperties = {
   background: "#eef2ff", color: "#3b4ec2", borderRadius: 8,
   padding: "10px 14px", fontSize: 13, marginBottom: 12
+};
+const caixaAcesso: React.CSSProperties = {
+  background: "#11161d", color: "#e6edf5", borderRadius: 12,
+  padding: 16, marginBottom: 14
+};
+const btnClaro: React.CSSProperties = {
+  background: "#fff", color: "#111", border: 0, borderRadius: 8,
+  padding: "8px 14px", fontSize: 12.5, fontWeight: 600,
+  cursor: "pointer", textDecoration: "none"
 };
 const caixaLink: React.CSSProperties = {
   background: "#11161d", color: "#d7e3f0", borderRadius: 10,

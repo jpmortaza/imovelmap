@@ -55,11 +55,12 @@ export async function GET() {
 /**
  * POST — cria corretor.
  *
- * Nunca definimos senha aqui: criamos a conta pela Admin API (que preenche
- * as colunas de token corretamente — `insert` direto em auth.users deixa
- * tudo NULL e quebra o login de TODO o projeto) e devolvemos um link de
- * acesso de uso único para o admin repassar. Quem escolhe a senha é o dono
- * da conta, no primeiro acesso.
+ * Sempre pela Admin API — `insert` direto em auth.users deixa as colunas de
+ * token NULL e quebra o login de TODO o projeto (já aconteceu neste projeto).
+ *
+ * A senha é opcional. Sem ela, mandamos link de uso único e quem escolhe a
+ * senha é o dono da conta, que é o melhor caminho. Com ela, o corretor entra
+ * na hora — resolve quem não tem e-mail à mão ou quer começar agora.
  */
 export async function POST(req: Request) {
   const guard = await exigirSuperAdmin();
@@ -87,9 +88,18 @@ export async function POST(req: Request) {
 
   const svc = servico();
 
+  // Senha definida pelo admin é opcional. Sem ela mandamos o link de uso
+  // único, que é melhor (só o dono da conta escolhe a senha). Com ela, o
+  // corretor entra na hora — que é o que resolve quem não tem e-mail à mão.
+  const senha = String(body.senha ?? "").trim();
+  if (senha && senha.length < 8) {
+    return NextResponse.json({ error: "senha precisa de ao menos 8 caracteres" }, { status: 400 });
+  }
+
   const { data: criado, error: errCriar } = await svc.auth.admin.createUser({
     email,
     email_confirm: true,
+    password: senha || undefined,
     user_metadata: { nome }
   });
 
@@ -110,15 +120,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: errPerfil.message }, { status: 500 });
   }
 
-  // link de uso único para o novo corretor entrar e definir a própria senha
+  // Só geramos o link quando NÃO houve senha: com senha o link é ruído, e
+  // ele expira em 1 hora — mandar os dois confunde quem recebe.
   let link: string | null = null;
-  const { data: gerado } = await svc.auth.admin.generateLink({
-    type: "magiclink",
-    email
-  });
-  link = gerado?.properties?.action_link ?? null;
+  if (!senha) {
+    const { data: gerado } = await svc.auth.admin.generateLink({
+      type: "magiclink",
+      email
+    });
+    link = gerado?.properties?.action_link ?? null;
+  }
 
-  return NextResponse.json({ ok: true, id: criado.user!.id, email, link });
+  // ⚠️ A senha volta UMA vez, para o admin copiar e repassar. Não é gravada
+  //    em lugar nenhum nosso — o Supabase guarda só o hash.
+  return NextResponse.json({
+    ok: true, id: criado.user!.id, email, link,
+    senha: senha || null, nome
+  });
 }
 
 /** PATCH — muda papel, cota ou ativa/desativa */
@@ -141,12 +159,28 @@ export async function PATCH(req: Request) {
     );
   }
 
+  const svcSenha = servico();
+
+  // trocar senha de um corretor existente
+  if (typeof body.senha === "string" && body.senha.trim()) {
+    const nova = body.senha.trim();
+    if (nova.length < 8) {
+      return NextResponse.json({ error: "senha precisa de ao menos 8 caracteres" }, { status: 400 });
+    }
+    const { error } = await svcSenha.auth.admin.updateUserById(id, { password: nova });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    // devolve para o admin copiar; não guardamos em lugar nenhum
+    return NextResponse.json({ ok: true, senha: nova });
+  }
+
   const campos: Record<string, unknown> = {};
   if (typeof body.ativo === "boolean") campos.ativo = body.ativo;
   if (["corretor", "admin", "super_admin"].includes(body.role)) campos.role = body.role;
   if (body.cota_diaria != null)
     campos.cota_diaria = Math.max(0, Math.min(500, Number(body.cota_diaria) || 0));
   if (body.nome !== undefined) campos.nome = String(body.nome).trim() || null;
+  if (body.telefone !== undefined) campos.telefone = String(body.telefone).trim() || null;
+  if (body.creci !== undefined) campos.creci = String(body.creci).trim() || null;
   if (body.cidade !== undefined) campos.cidade = String(body.cidade).trim() || null;
   if (Array.isArray(body.bairros))
     campos.bairros = body.bairros.map((b: unknown) => String(b).trim()).filter(Boolean).slice(0, 30);
