@@ -733,6 +733,14 @@ function ContatosPredio({ imovel }: { imovel: Record<string, any> }) {
   );
 }
 
+/** "12345678909" → "123.***.**9-09" — o corretor não precisa do CPF inteiro. */
+function docMascarado(d: string | null): string | null {
+  const v = String(d ?? "").replace(/\D/g, "");
+  if (v.length === 11) return `${v.slice(0, 3)}.***.**${v.slice(8, 9)}-${v.slice(9)}`;
+  if (v.length === 14) return `${v.slice(0, 2)}.***.***/${v.slice(8, 12)}-${v.slice(12)}`;
+  return null;
+}
+
 /** Contatos de base própria importada pelo admin (ver /admin/importar). */
 function ContatosImportados({ imovel }: { imovel: Record<string, any> }) {
   const c = Array.isArray(imovel.contatos_importados) ? imovel.contatos_importados : null;
@@ -751,6 +759,15 @@ function ContatosImportados({ imovel }: { imovel: Record<string, any> }) {
                 <span style={{ fontSize: 11, color: "#8a6100", marginLeft: 7 }}>
                   (endereço, não a unidade)
                 </span>
+              )}
+              {(x.doc || x.nascimento) && (
+                <div style={{ fontSize: 11.5, color: "#777" }}>
+                  {docMascarado(x.doc)}
+                  {x.doc && x.nascimento ? " · " : ""}
+                  {x.nascimento
+                    ? new Date(x.nascimento).toLocaleDateString("pt-BR", { timeZone: "UTC" })
+                    : ""}
+                </div>
               )}
               {x.obs && <div style={{ fontSize: 11.5, color: "#777" }}>{x.obs}</div>}
             </span>

@@ -15,14 +15,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
  */
 
 type Campo =
-  | "ignorar" | "nome" | "telefone" | "email" | "logradouro" | "numero"
-  | "complemento" | "bairro" | "cep" | "cidade" | "observacao";
+  | "ignorar" | "nome" | "ddd" | "telefone" | "email" | "documento"
+  | "nascimento" | "logradouro" | "numero" | "complemento" | "bairro"
+  | "cep" | "cidade" | "observacao";
 
 const CAMPOS: { v: Campo; r: string }[] = [
   { v: "ignorar", r: "— ignorar —" },
   { v: "nome", r: "Nome" },
+  { v: "ddd", r: "DDD" },
   { v: "telefone", r: "Telefone" },
   { v: "email", r: "E-mail" },
+  { v: "documento", r: "CPF / CNPJ" },
+  { v: "nascimento", r: "Nascimento" },
   { v: "logradouro", r: "Rua / logradouro" },
   { v: "numero", r: "Número" },
   { v: "complemento", r: "Complemento (apto)" },
@@ -115,8 +119,13 @@ export default function ImportarPage() {
       cab.map((c) => {
         const n = c.toLowerCase();
         if (/nome|razao|cliente/.test(n) && !/mae|mãe/.test(n)) return "nome";
+        // DDD antes de telefone: "ddd" casaria com nada, mas a ordem importa
+        // porque planilha tem "ddd" e "telefone" como colunas separadas
+        if (/^ddd$/.test(n) || /\bddd\b/.test(n)) return "ddd";
         if (/tel|fone|celular|whats/.test(n)) return "telefone";
         if (/mail/.test(n)) return "email";
+        if (/cpf|cnpj|documento|^doc$/.test(n)) return "documento";
+        if (/nasc|aniver|dt_?nasc|data.?nasc/.test(n)) return "nascimento";
         if (/logradouro|endereco|endereço|rua/.test(n)) return "logradouro";
         if (/^n(umero|úmero|um|r)?\.?$/.test(n)) return "numero";
         if (/compl/.test(n)) return "complemento";
@@ -224,6 +233,12 @@ export default function ImportarPage() {
         abaixo fica gravada e é o que permite apagar tudo depois — inclusive de
         dentro de cada imóvel — se um titular pedir exclusão ou a origem se
         mostrar ruim.
+        <div style={{ marginTop: 7 }}>
+          CPF e nascimento são aceitos, mas só mapeie se você realmente for
+          usá-los: coluna marcada como “ignorar” não sai do seu computador. Na
+          página do imóvel o CPF aparece <b>mascarado</b> — o corretor não
+          precisa dele para ligar.
+        </div>
       </div>
 
       <div style={cartao}>
