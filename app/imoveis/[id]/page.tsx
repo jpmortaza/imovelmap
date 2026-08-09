@@ -157,6 +157,7 @@ export default async function ImovelPage({ params }: { params: { id: string } })
         <Matricula imovel={imovel} />
         <ContatosCnpj imovel={imovel} />
         <ContatosPredio imovel={imovel} />
+        <ContatosImportados imovel={imovel} />
 
         <section style={cartao}>
           <h2 style={h2}>💰 Valores</h2>
@@ -727,6 +728,44 @@ function ContatosPredio({ imovel }: { imovel: Record<string, any> }) {
       >
         Estes cadastros são do <b>endereço</b>, não da unidade anunciada. Servem
         para chegar ao prédio — quem confirma quem é o dono é a matrícula.
+      </div>
+    </section>
+  );
+}
+
+/** Contatos de base própria importada pelo admin (ver /admin/importar). */
+function ContatosImportados({ imovel }: { imovel: Record<string, any> }) {
+  const c = Array.isArray(imovel.contatos_importados) ? imovel.contatos_importados : null;
+  if (!c?.length) return null;
+
+  return (
+    <section style={{ ...cartao, borderLeft: "4px solid #7c3aed" }}>
+      <h2 style={h2}>📇 Da nossa base</h2>
+      <div style={{ display: "grid", gap: 5 }}>
+        {c.slice(0, 12).map((x: any, i: number) => (
+          <div key={i} style={linhaContato}>
+            <span>
+              <b>{x.nome ?? "—"}</b>
+              {x.unidade && <span style={{ color: "#888", marginLeft: 6 }}>un. {x.unidade}</span>}
+              {x.forca === "predio" && (
+                <span style={{ fontSize: 11, color: "#8a6100", marginLeft: 7 }}>
+                  (endereço, não a unidade)
+                </span>
+              )}
+              {x.obs && <div style={{ fontSize: 11.5, color: "#777" }}>{x.obs}</div>}
+            </span>
+            <span style={{ display: "flex", gap: 10 }}>
+              {x.fone && (
+                <a href={`tel:+55${x.fone}`} style={{ color: "#7c3aed", fontWeight: 600 }}>
+                  {fone(x.fone)}
+                </a>
+              )}
+              {x.email && (
+                <a href={`mailto:${x.email}`} style={{ color: "#7c3aed" }}>{x.email}</a>
+              )}
+            </span>
+          </div>
+        ))}
       </div>
     </section>
   );

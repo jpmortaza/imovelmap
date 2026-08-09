@@ -58,6 +58,9 @@ export default async function ImoveisPage({
   // inclui contato do prédio (vizinho, administração do condomínio)
   if (searchParams.com_contato === "2")
     query = query.or("contatos_cnpj.not.is.null,contatos_predio.not.is.null");
+  // só o que veio de base nossa importada
+  if (searchParams.com_contato === "3")
+    query = query.not("contatos_importados", "is", null);
   // pede muito acima do que o prédio vende: costuma encalhar
   if (searchParams.caro === "1") query = query.gte("sobrepreco", 0.6);
   if (searchParams.fsbo === "1") query = query.eq("tipo_anunciante", "proprietario");

@@ -23,6 +23,9 @@ export default async function AdminLayout({
         <Link href="/admin/corretores" style={aba}>
           Corretores
         </Link>
+        <Link href="/admin/importar" style={aba}>
+          Importar contatos
+        </Link>
       </div>
       {children}
     </CascaApp>

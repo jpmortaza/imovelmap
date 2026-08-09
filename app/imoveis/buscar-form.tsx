@@ -123,6 +123,7 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
           <option value="">Contato: tanto faz</option>
           <option value="1">🏢 nome e fone da unidade</option>
           <option value="2">🏘️ da unidade ou do prédio</option>
+          <option value="3">📇 da nossa base importada</option>
         </select>
       </div>
 
