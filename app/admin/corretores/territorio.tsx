@@ -60,11 +60,14 @@ export default function Territorio({
     );
   }
 
-  const visiveis = busca.trim()
-    ? opcoes.filter((o) =>
-        o.bairro.toLowerCase().includes(busca.trim().toLowerCase())
-      )
-    : opcoes.slice(0, 40);
+  const filtrados = busca.trim()
+    ? opcoes.filter((o) => o.bairro.toLowerCase().includes(busca.trim().toLowerCase()))
+    : opcoes;
+  // sem filtro mostramos os 40 maiores; com filtro, tudo que casou
+  const visiveis = busca.trim() ? filtrados : filtrados.slice(0, 40);
+  const totalImoveis = filtrados.reduce((a, o) => a + o.n, 0);
+  const todosMarcados =
+    filtrados.length > 0 && filtrados.every((o) => bairros.includes(o.bairro));
 
   return (
     <div style={{ display: "grid", gap: 8 }}>
@@ -97,6 +100,34 @@ export default function Territorio({
           </label>
         )}
       </div>
+
+      {cidade && filtrados.length > 0 && (
+        <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() =>
+              onChange(
+                cidade,
+                todosMarcados
+                  ? bairros.filter((b) => !filtrados.some((o) => o.bairro === b))
+                  : [...new Set([...bairros, ...filtrados.map((o) => o.bairro)])]
+              )
+            }
+            style={botaoTodos}
+          >
+            {todosMarcados ? "✕ desmarcar" : "✓ selecionar"}{" "}
+            {busca.trim() ? `os ${filtrados.length} filtrados` : `todos os ${filtrados.length} bairros`}
+          </button>
+          <span style={{ fontSize: 11.5, color: "#888" }}>
+            {totalImoveis.toLocaleString("pt-BR")} imóveis
+          </span>
+          {bairros.length > 0 && (
+            <button type="button" onClick={() => onChange(cidade, [])} style={botaoLimpar}>
+              limpar seleção
+            </button>
+          )}
+        </div>
+      )}
 
       {bairros.length > 0 && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -138,12 +169,37 @@ export default function Territorio({
               </button>
             ))
           )}
+          {!busca.trim() && filtrados.length > visiveis.length && (
+            <span style={{ fontSize: 11.5, color: "#999", alignSelf: "center" }}>
+              +{filtrados.length - visiveis.length} — digite para achar, ou use
+              “selecionar todos”
+            </span>
+          )}
         </div>
       )}
     </div>
   );
 }
 
+const botaoTodos: React.CSSProperties = {
+  border: "1px solid #157f3c",
+  background: "#e7f6ec",
+  color: "#157f3c",
+  borderRadius: 8,
+  padding: "5px 11px",
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: "pointer"
+};
+const botaoLimpar: React.CSSProperties = {
+  border: "1px solid #e2e6ea",
+  background: "#fff",
+  color: "#777",
+  borderRadius: 8,
+  padding: "5px 10px",
+  fontSize: 12,
+  cursor: "pointer"
+};
 const rotulo: React.CSSProperties = {
   fontSize: 11,
   color: "#888",
