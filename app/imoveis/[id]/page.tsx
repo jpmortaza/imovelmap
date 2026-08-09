@@ -92,10 +92,20 @@ export default async function ImovelPage({ params }: { params: { id: string } })
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
             <Imprimir />
-            <div style={{ ...bolha, background: corTemp, color: fgTemp }}>
-              {temp}
-              <div style={{ fontSize: 9, letterSpacing: 0.5 }}>TEMP</div>
-            </div>
+            {/* ⚠️ Só aparece quando HÁ sinal. Dois dos quatro componentes da
+                temperatura precisam de tempo — queda de preço exige um segundo
+                preço, e tempo no mercado exige o imóvel envelhecer. Com a base
+                nova, 74% dá 0, e um selo "0 TEMP" lê como "imóvel frio": uma
+                afirmação que não dá para sustentar. Ausência é mais honesta. */}
+            {temp > 0 && (
+              <div
+                style={{ ...bolha, background: corTemp, color: fgTemp }}
+                title="Sem exclusiva, queda de preço, tempo no mercado e preço acima do prédio"
+              >
+                {temp}
+                <div style={{ fontSize: 9, letterSpacing: 0.5 }}>TEMP</div>
+              </div>
+            )}
           </div>
         </div>
 
