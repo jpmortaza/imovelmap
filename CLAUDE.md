@@ -137,7 +137,8 @@ Duas coisas que valem mais que o número:
 | `publico.cnpj_estabelecimentos` | 856.167 | dump da Receita, filtrado em fluxo | **nome e telefone de quem está na unidade** |
 | `publico.cnpj_socios` | 501.318 | mesmo dump, arquivo `Socios` | nome das pessoas por trás das LTDA |
 | `publico.osm_enderecos` | 128.360 | extrato Geofabrik `sul-latest.osm.pbf` | candidatos de nº de porta no RS |
-| `publico.condominios` | 10.245 | sitemap de condomínios do Lopes | nome do prédio (8.557 anúncios nomeados) |
+| `publico.condominios` | 10.245 | sitemap de condomínios do Lopes | nome do prédio (15.071 anúncios nomeados) |
+| `publico.contatos_importados` | — | planilha do Jean em `/admin/importar` | base própria, com origem e base legal declaradas |
 
 **O CNPJ é o segundo achado da noite.** Milhões de brasileiros abrem empresa no
 endereço onde moram, e o cadastro da Receita traz logradouro, número,
@@ -152,9 +153,55 @@ societário** (`0035`): *"Barão do Guaíba, 1000 · ap 801 → Elixir Software
 Development LTDA → Carlos Alberto Bueno, (51) 3364-1140"*. O CPF já vem
 mascarado na fonte e não é guardado.
 
+⭐ **E o condomínio tem CNPJ próprio** (`0036`), registrado no endereço do
+prédio. 19.316 imóveis têm o do seu — quem atende ali é a administração, que
+sabe de quem é o 802. Era a porta que faltava para chegar ao dono sem passar
+pelo cartório, e estava dentro de um cadastro que já tínhamos.
+
+Afrouxar o casamento de unidade exata para **prédio** levou de 770 para
+**30.067** imóveis com contato. É mais fraco e a tela diz isso — três blocos
+separados: *da unidade* (forte), *do prédio* (pista) e *da nossa base*
+(importado). Corte em 15 empresas por endereço para morador; acima disso é
+torre comercial. O condomínio entra mesmo em prédio grande.
+
 Nenhuma delas precisou de `psql` nem de download de CSV gigante — era isso que
 travava a Fase 7. O CKAN de POA tem **datastore ativo**: dá para consultar por
 SQL via API e paginar. A carga inteira do ITBI leva ~6 min.
+
+### 📇 Importar base própria (`/admin/importar`, `0037`/`0038`)
+
+Tela de super_admin para subir planilha de contatos e ligar aos imóveis por
+endereço. Casa em duas forças, gravadas em cada contato: `unidade`
+(rua + número + apartamento) e `predio` (rua + número).
+
+**Cada lote declara origem e base legal, e isso não é burocracia** — é o que
+permite auditar de onde veio um contato e, principalmente, **apagar a base
+inteira num clique**: a linha some da tabela *e de dentro do jsonb de cada
+imóvel*. Sem a segunda parte, um pedido de eliminação do titular (LGPD art. 18,
+VI) não teria como ser atendido. Testado: 3 contatos em 5 anúncios, tudo zerado
+depois do apagar.
+
+Detalhes que custaram teste:
+- **DDD vem em coluna separada** e a mesma planilha mistura linhas com e sem
+  ele no número. Concatenar sempre dá `5151999…`; a regra só prefixa quando o
+  número não começa com o DDD e tem menos de 12 dígitos.
+- Documento: 11 dígitos = CPF, 14 = CNPJ, o resto vira `null`. Na tela sai
+  **mascarado** (`123.***.**9-09`).
+- Nascimento aceita `31/12/1980`, `1980-12-31`, `31121980`, `19801231`. Data
+  impossível devolve `null` em vez de derrubar o lote inteiro.
+- Coluna marcada como "ignorar" **não sai do navegador**.
+
+### 🚫 Base que NÃO entra
+
+Em 07/08 apareceu um `porto_alegre.csv` de 213 MB com 1,5 milhão de pessoas:
+`cpf_cnpj;nome;dt_nasc;nome_mae;...;status_linha;data_instalacao;produto`.
+**Recusei.** O `nome_mae` decide: é fator de autenticação bancária e não existe
+em base comercial legítima — junto com `status_linha`/`produto`, é cadastro de
+operadora vazado. Copiar isso já é tratamento sob a LGPD, e este banco está
+atrelado a um repositório público.
+
+A alternativa entregue no lugar foi melhor para o produto: os 30.067 contatos
+por CNPJ + o `/admin/importar` para base própria com procedência declarada.
 
 ### ⚠️ Pendente
 
