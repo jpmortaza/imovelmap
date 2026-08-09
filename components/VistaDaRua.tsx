@@ -10,12 +10,12 @@ import { useState } from "react";
  *    vender; a fachada mostra a idade real do prédio, a rua, se tem portaria,
  *    se a garagem é na frente. Em prospecção isso é metade da qualificação.
  *
- * ⚠️ A imagem embutida exige `NEXT_PUBLIC_GOOGLE_MAPS_KEY`. SEM a chave nada
- *    quebra: caem os botões que abrem no Google, que funcionam de graça. Com a
- *    chave, a imagem aparece aqui dentro e entra na impressão da ficha.
+ * ⚠️ A imagem vem de `/api/streetview`, que assina e busca no SERVIDOR. A
+ *    chave do Google nunca chega ao navegador — em `NEXT_PUBLIC_*` ela entraria
+ *    no bundle e qualquer um usaria a nossa cota.
  *
- *    O Google dá US$ 200/mês de crédito, o que cobre ~28 mil imagens de Street
- *    View — muito acima do que este uso consome.
+ *    Sem a chave configurada a rota devolve 503 e nada quebra: ficam os botões
+ *    que abrem no Google, que funcionam de graça.
  */
 export default function VistaDaRua({
   lat,
@@ -28,7 +28,6 @@ export default function VistaDaRua({
   endereco?: string | null;
   altura?: number;
 }) {
-  const chave = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY;
   const [erro, setErro] = useState(false);
   const [giro, setGiro] = useState(0);
 
@@ -40,14 +39,11 @@ export default function VistaDaRua({
 
   // 4 ângulos: a fachada nem sempre está no rumo que o carro do Google seguia
   const heading = giro * 90;
-  const imagem =
-    chave &&
-    `https://maps.googleapis.com/maps/api/streetview?size=640x360&location=${coord}` +
-      `&heading=${heading}&pitch=6&fov=80&return_error_code=true&key=${chave}`;
+  const imagem = `/api/streetview?lat=${lat}&lng=${lng}&heading=${heading}`;
 
   return (
     <div>
-      {imagem && !erro ? (
+      {!erro ? (
         <div style={{ position: "relative" }}>
           <a href={linkPano} target="_blank" rel="noreferrer">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -77,12 +73,11 @@ export default function VistaDaRua({
         <div style={{ ...vazio, height: altura }}>
           <div style={{ fontSize: 30 }}>🏢</div>
           <div style={{ fontSize: 13, fontWeight: 600, marginTop: 6 }}>
-            {erro ? "Sem Street View neste ponto" : "Fachada não embutida"}
+            Fachada indisponível
           </div>
           <div style={{ fontSize: 12, color: "#888", marginTop: 3, maxWidth: 300, lineHeight: 1.5 }}>
-            {erro
-              ? "O Google não tem cobertura nesta coordenada. Os botões abaixo ainda abrem o local."
-              : "Defina NEXT_PUBLIC_GOOGLE_MAPS_KEY para a fachada aparecer aqui e sair na impressão."}
+            Ou o Google não tem cobertura nesta coordenada, ou a chave ainda não
+            foi configurada. Os botões abaixo abrem o local de qualquer forma.
           </div>
         </div>
       )}
