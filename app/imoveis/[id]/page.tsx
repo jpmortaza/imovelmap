@@ -156,6 +156,7 @@ export default async function ImovelPage({ params }: { params: { id: string } })
             ITBI de Porto Alegre, dados abertos. */}
         <Matricula imovel={imovel} />
         <ContatosCnpj imovel={imovel} />
+        <ContatosPredio imovel={imovel} />
 
         <section style={cartao}>
           <h2 style={h2}>💰 Valores</h2>
@@ -646,6 +647,102 @@ function ContatosCnpj({ imovel }: { imovel: Record<string, any> }) {
     </section>
   );
 }
+
+/**
+ * Quem mais está NO PRÉDIO — não necessariamente na unidade anunciada.
+ *
+ * Mais fraco que `contatos_cnpj`, e a tela precisa dizer isso: serve para o
+ * corretor chegar ao prédio (a administração, um vizinho que sabe de quem é o
+ * 802), não para ligar afirmando que fala com o dono.
+ *
+ * ⭐ O CONDOMÍNIO vem primeiro quando existe: ele tem CNPJ próprio registrado
+ *    no endereço, quem atende é a administração, e a administração sabe de
+ *    quem é cada unidade. É a porta mais direta do prédio.
+ */
+function ContatosPredio({ imovel }: { imovel: Record<string, any> }) {
+  const c = Array.isArray(imovel.contatos_predio) ? imovel.contatos_predio : null;
+  if (!c?.length) return null;
+
+  const cond = c.filter((x: any) => x.condominio);
+  const gente = c.filter((x: any) => !x.condominio);
+
+  return (
+    <section style={{ ...cartao, borderLeft: "4px solid #64748b" }}>
+      <h2 style={h2}>🏘️ Quem mais está neste prédio</h2>
+
+      {cond.length > 0 && (
+        <div style={{ marginBottom: gente.length ? 14 : 0 }}>
+          <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>
+            <b>Administração do condomínio</b> — é quem sabe de quem é cada unidade
+          </div>
+          {cond.map((x: any, i: number) => (
+            <div key={i} style={{ ...linhaContato, background: "#eef6ff", borderColor: "#cfe2f7" }}>
+              <span style={{ fontWeight: 700 }}>{x.nome}</span>
+              {x.fone && (
+                <a href={`tel:+55${x.fone}`} style={{ color: "#0b6bcb", fontWeight: 600 }}>
+                  {fone(x.fone)}
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {gente.length > 0 && (
+        <>
+          <div style={{ fontSize: 12, color: "#666", marginBottom: 6 }}>
+            {gente.length} {gente.length === 1 ? "cadastro" : "cadastros"} de outras
+            unidades do mesmo endereço
+          </div>
+          <div style={{ display: "grid", gap: 5 }}>
+            {gente.slice(0, 10).map((x: any, i: number) => (
+              <div key={i} style={linhaContato}>
+                <span>
+                  {x.unidade && (
+                    <span style={{ color: "#888", marginRight: 6 }}>un. {x.unidade}</span>
+                  )}
+                  <b>{x.nome}</b>
+                </span>
+                {x.fone && (
+                  <a href={`tel:+55${x.fone}`} style={{ color: "#0b6bcb", fontWeight: 600 }}>
+                    {fone(x.fone)}
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div
+        style={{
+          marginTop: 11,
+          fontSize: 11.5,
+          color: "#555",
+          background: "#f6f7f9",
+          borderRadius: 8,
+          padding: "9px 11px",
+          lineHeight: 1.5
+        }}
+      >
+        Estes cadastros são do <b>endereço</b>, não da unidade anunciada. Servem
+        para chegar ao prédio — quem confirma quem é o dono é a matrícula.
+      </div>
+    </section>
+  );
+}
+
+const linhaContato: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  gap: 10,
+  fontSize: 13,
+  background: "#f6f7f9",
+  border: "1px solid #e8ecef",
+  borderRadius: 8,
+  padding: "8px 11px"
+};
 
 const tagPessoa: React.CSSProperties = {
   background: "#dcfce7",

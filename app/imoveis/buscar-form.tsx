@@ -25,7 +25,7 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
   const [comEndereco, setComEndereco] = useState(sp.get("com_endereco") === "1");
   const [comMatricula, setComMatricula] = useState(sp.get("com_matricula") ?? "");
   const [semAux, setSemAux] = useState(sp.get("sem_auxiliadora") === "1");
-  const [comContato, setComContato] = useState(sp.get("com_contato") === "1");
+  const [comContato, setComContato] = useState(sp.get("com_contato") ?? "");
   const [caro, setCaro] = useState(sp.get("caro") === "1");
 
   function aplicar(e?: React.FormEvent) {
@@ -45,7 +45,7 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
     if (comEndereco) p.set("com_endereco", "1");
     if (comMatricula) p.set("com_matricula", comMatricula);
     if (semAux) p.set("sem_auxiliadora", "1");
-    if (comContato) p.set("com_contato", "1");
+    if (comContato) p.set("com_contato", comContato);
     if (caro) p.set("caro", "1");
     // filtro novo sempre volta para a página 1
     startTransition(() => router.push(`/imoveis${p.toString() ? "?" + p : ""}`));
@@ -55,7 +55,7 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
     setQ(""); setCidade(""); setTipo(""); setBairro("");
     setQuartosMin(""); setPrecoMin(""); setPrecoMax(""); setAreaMin("");
     setOrdem("recentes"); setComTelefone(false); setFsbo(false); setComEndereco(false);
-    setComMatricula(""); setSemAux(false); setComContato(false); setCaro(false);
+    setComMatricula(""); setSemAux(false); setComContato(""); setCaro(false);
     startTransition(() => router.push("/imoveis"));
   }
 
@@ -115,6 +115,15 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
           <option value="1">📜 só com matrícula certa</option>
           <option value="2">📜 matrícula certa ou candidata</option>
         </select>
+        <select
+          value={comContato}
+          onChange={(e) => setComContato(e.target.value)}
+          style={{ ...input, minWidth: 200 }}
+        >
+          <option value="">Contato: tanto faz</option>
+          <option value="1">🏢 nome e fone da unidade</option>
+          <option value="2">🏘️ da unidade ou do prédio</option>
+        </select>
       </div>
 
       <div style={{ ...linha, alignItems: "center" }}>
@@ -131,9 +140,7 @@ export default function BuscarForm({ cidades }: { cidades: string[] }) {
         <Marcador ligado={semAux} set={setSemAux} cor="#0b6bcb">
           🔵 esconder a Auxiliadora
         </Marcador>
-        <Marcador ligado={comContato} set={setComContato} cor="#0b6bcb">
-          🏢 nome e telefone da unidade
-        </Marcador>
+
         <Marcador ligado={caro} set={setCaro} cor="#991b1b">
           💸 pede 60%+ acima do prédio
         </Marcador>
