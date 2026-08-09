@@ -7,6 +7,7 @@ import Imprimir from "./imprimir";
 import Galeria from "./galeria";
 
 // Leaflet usa window: só no cliente.
+const VistaDaRua = nextDynamic(() => import("@/components/VistaDaRua"), { ssr: false });
 const MiniMapa = nextDynamic(() => import("@/components/MiniMapa"), {
   ssr: false,
   loading: () => (
@@ -205,16 +206,31 @@ export default async function ImovelPage({ params }: { params: { id: string } })
           )}
           {imovel.latitude != null && (
             <div style={{ marginTop: 12 }}>
-              <MiniMapa
-                lat={Number(imovel.latitude)}
-                lng={Number(imovel.longitude)}
-                cor={imovel.ja_e_nosso ? "#dc2626" : "#2563eb"}
-                incerto={Boolean(imovel.numero_inferido)}
-              />
+              {/* Mapa e fachada lado a lado: "onde fica" e "como é" são as
+                  duas perguntas que o corretor faz antes de decidir a visita. */}
+              <div style={duplaVista}>
+                <div>
+                  <div style={rotuloVista}>Onde fica</div>
+                  <MiniMapa
+                    lat={Number(imovel.latitude)}
+                    lng={Number(imovel.longitude)}
+                    cor={imovel.ja_e_nosso ? "#dc2626" : "#2563eb"}
+                    incerto={Boolean(imovel.numero_inferido)}
+                  />
+                </div>
+                <div>
+                  <div style={rotuloVista}>A fachada, da rua</div>
+                  <VistaDaRua
+                    lat={Number(imovel.latitude)}
+                    lng={Number(imovel.longitude)}
+                    endereco={enderecoCompleto}
+                  />
+                </div>
+              </div>
               {imovel.numero_inferido && (
-                <div style={{ fontSize: 11.5, color: "#8a6100", marginTop: 5 }}>
-                  O círculo é a margem de dúvida: o número da porta foi deduzido,
-                  então a posição exata pode ser um prédio vizinho.
+                <div style={{ fontSize: 11.5, color: "#8a6100", marginTop: 7 }}>
+                  O círculo no mapa é a margem de dúvida: o número da porta foi
+                  deduzido, então a fachada pode ser a do prédio vizinho.
                 </div>
               )}
             </div>
@@ -1083,6 +1099,18 @@ const header: React.CSSProperties = {
   gap: 12
 };
 const main: React.CSSProperties = { maxWidth: 860, margin: "0 auto", padding: 24 };
+const duplaVista: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+  gap: 12
+};
+const rotuloVista: React.CSSProperties = {
+  fontSize: 11,
+  color: "#888",
+  textTransform: "uppercase",
+  letterSpacing: 0.4,
+  marginBottom: 5
+};
 const faixaResumo: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
